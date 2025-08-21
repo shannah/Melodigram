@@ -1,0 +1,37 @@
+// build.gradle (fixed)
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+group = 'com.Tbence132545'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    implementation 'com.google.code.gson:gson:2.10.1'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+application {
+    mainClass = 'com.Tbence132545.Melodigram.Main'
+}
+
+tasks.shadowJar {
+    archiveBaseName.set('Melodigram')
+    archiveVersion.set('')
+    archiveClassifier.set('')
+
+    manifest {
+        attributes 'Main-Class': application.mainClass.get()
+    }
+}

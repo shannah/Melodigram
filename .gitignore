@@ -1,0 +1,19 @@
+# Gradle
+.gradle/
+build/
+release/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# IDE-independent
+*.class
+*.log
+*.jar
+*.war
+*.ear
+
+# Operating System Files
+.DS_Store
+Thumbs.db
