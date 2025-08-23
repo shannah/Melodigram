@@ -38,8 +38,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build fat jar
-        run: |
-          ./gradlew --no-daemon shadowJar
+        run: ./gradlew --no-daemon shadowJar
         shell: bash
 
       # --------------------------
@@ -53,19 +52,19 @@ jobs:
           New-Item -ItemType Directory -Path package
           Copy-Item build\libs\Melodigram.jar package\
           @"
-            @echo off
-            java -jar "%~dp0Melodigram.jar"
+          @echo off
+          java -jar "%~dp0Melodigram.jar"
           "@ | Set-Content -Path package\run.bat -Encoding ASCII
-                    Compress-Archive -Path package -DestinationPath Melodigram-fat-windows.zip
-          
-                - name: Package fat jar (mac/linux)
-                  if: runner.os != 'Windows'
-                  shell: bash
-                  run: |
-                    rm -rf package || true
-                    mkdir -p package
-                    cp build/libs/Melodigram.jar package/
-                    cat > package/run.sh <<'EOS'
+          Compress-Archive -Path package\* -DestinationPath Melodigram-fat-windows.zip
+
+      - name: Package fat jar (mac/linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          rm -rf package || true
+          mkdir -p package
+          cp build/libs/Melodigram.jar package/
+          cat > package/run.sh <<'EOS'
           #!/bin/bash
           SCRIPT_DIR="$(cd -- "$(dirname "$0")" >/dev/null 2>&1 && pwd)"
           exec java -jar "$SCRIPT_DIR/Melodigram.jar"
