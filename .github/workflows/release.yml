@@ -40,10 +40,15 @@ jobs:
       - name: Build and Rename fat jar
         run: |
           ./gradlew --no-daemon shadowJar
-          # The shadow jar task creates a file with a version/classifier.
-          # We find that single jar and rename it to a consistent name for subsequent steps.
+          # Find the created JAR file.
           JAR_FILE=$(find build/libs -name "*.jar")
-          mv "$JAR_FILE" build/libs/Melodigram.jar
+          # Only rename the file if it's not already the target name.
+          if [ "$JAR_FILE" != "build/libs/Melodigram.jar" ]; then
+            echo "Renaming $JAR_FILE to Melodigram.jar"
+            mv "$JAR_FILE" build/libs/Melodigram.jar
+          else
+            echo "JAR file is already correctly named."
+          fi
         shell: bash
 
       # --------------------------
