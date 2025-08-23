@@ -52,7 +52,10 @@ jobs:
           Remove-Item -Recurse -Force package -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path package
           Copy-Item build\libs\Melodigram.jar package\
-          Set-Content -Path package\run.bat -Value "@echo off`r`njava -jar `"package\Melodigram.jar`""
+          @"
+@echo off
+java -jar "%~dp0Melodigram.jar"
+"@ | Set-Content -Path package\run.bat -Encoding ASCII
           Compress-Archive -Path package -DestinationPath Melodigram-fat-windows.zip
 
       - name: Package fat jar (mac/linux)
