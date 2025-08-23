@@ -79,9 +79,7 @@ jobs:
       - name: Install WiX (Windows)
         if: runner.os == 'Windows'
         shell: powershell
-        run: |
-          choco install wixtoolset --no-progress -y
-          refreshenv
+        run: choco install wixtoolset --no-progress -y
 
       - name: Ensure fakeroot (Linux)
         if: runner.os == 'Linux'
@@ -118,7 +116,7 @@ jobs:
           mkdir -p dist
           jpackage \
             --type dmg \
-            --input build/libs \
+            --input build\libs \
             --main-jar Melodigram.jar \
             --main-class $MAIN_CLASS \
             --name $APP_NAME \
