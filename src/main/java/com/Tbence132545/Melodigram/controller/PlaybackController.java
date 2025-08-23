@@ -1,3 +1,4 @@
+// java
 package com.Tbence132545.Melodigram.controller;
 
 import com.Tbence132545.Melodigram.model.MidiPlayer;
@@ -11,7 +12,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-//Class used for connecting the PianoWindow to the logic
+
 public class PlaybackController {
     private final MidiPlayer midiPlayer;
     private final PianoWindow pianoWindow;
@@ -25,7 +26,13 @@ public class PlaybackController {
     private boolean isPracticeMode = false;
     private final List<Integer> currentlyPressedNotes = new ArrayList<>();
 
-    private MidiDevice midiInputDevice; // Holds the MIDI input device chosen externally
+    private MidiDevice midiInputDevice;
+
+    // Drag state
+    private boolean wasPlayingBeforeDrag = false;
+
+    // Practice gating state: which notes we are waiting for (set only when we cross an onset)
+    private final List<Integer> awaitedNotes = new ArrayList<>();
 
     public PlaybackController(MidiPlayer midiPlayer, PianoWindow pianoWindow) {
         this.midiPlayer = midiPlayer;
@@ -37,39 +44,64 @@ public class PlaybackController {
         pianoWindow.setPlayButtonListener(e -> togglePlayback());
         seekBar = new SeekBar(midiPlayer.getSequencer());
         pianoWindow.addSeekBar(seekBar);
+
+        // Always update animation time on seek and reset practice state
         seekBar.setSeekListener(newMicroseconds -> {
-            if (animationPaused) { return; }
             long newMillis = newMicroseconds / 1000;
             animationPanel.updatePlaybackTime(newMillis);
-            lastTickTime = System.currentTimeMillis(); // avoid jumpy delta
+            resetPracticeState();
+            lastTickTime = System.currentTimeMillis();
         });
+
         pianoWindow.setForwardButtonListener(e -> {
             midiPlayer.forward();
-            // Important: Sync the animation panel with the new player time
             long newTimeMillis = midiPlayer.getSequencer().getMicrosecondPosition() / 1000;
             animationPanel.updatePlaybackTime(newTimeMillis);
+            resetPracticeState();
         });
-
-        // --- AND ADD THIS BLOCK BACK IN ---
         pianoWindow.setBackwardButtonListener(e -> {
             midiPlayer.backward();
-            // Important: Sync the animation panel with the new player time
             long newTimeMillis = midiPlayer.getSequencer().getMicrosecondPosition() / 1000;
             animationPanel.updatePlaybackTime(newTimeMillis);
+            resetPracticeState();
         });
+
+        // Drag-to-scrub on animation panel
+        long totalMillis = midiPlayer.getSequencer().getMicrosecondLength() / 1000;
+        animationPanel.setTotalDurationMillis(totalMillis);
+        animationPanel.setOnDragStart(() -> {
+            wasPlayingBeforeDrag = midiPlayer.isPlaying();
+            if (wasPlayingBeforeDrag) midiPlayer.stop();
+            animationPaused = true;
+            resetPracticeState();
+            lastTickTime = System.currentTimeMillis();
+        });
+        animationPanel.setOnTimeChange(newTimeMillis -> {
+            try {
+                midiPlayer.getSequencer().setMicrosecondPosition(newTimeMillis * 1000);
+            } catch (Exception ignored) {}
+            lastTickTime = System.currentTimeMillis();
+        });
+        animationPanel.setOnDragEnd(() -> {
+            animationPaused = false;
+            if (wasPlayingBeforeDrag && !isPracticeMode) {
+                midiPlayer.play();
+            }
+            lastTickTime = System.currentTimeMillis();
+        });
+
         lastTickTime = System.currentTimeMillis();
 
-        // Unified timer for animation and UI updates
+        // Unified timer
         sharedTimer = new Timer(1000 / 60, e -> {
             long now = System.currentTimeMillis();
             long delta = now - lastTickTime;
             lastTickTime = now;
 
             if (!playbackStarted) {
-                if (midiPlayer.getSequencer().getMicrosecondLength() > 0 &&
-                        now - startTime > 3000) {
+                if (midiPlayer.getSequencer().getMicrosecondLength() > 0 && now - startTime > 3000) {
                     pianoWindow.disableButtons(false);
-                    if(!isPracticeMode){
+                    if (!isPracticeMode) {
                         midiPlayer.play();
                     }
                     playbackStarted = true;
@@ -81,29 +113,36 @@ public class PlaybackController {
 
             if (animationPaused) return;
 
-            // --- PRACTICE MODE CHECK ---
+            // Practice gating based on onsets crossed between frames
             if (isPracticeMode) {
-                List<Integer> expectedNotes = animationPanel.getActiveNotesToBePlayed(animationPanel.getCurrentTimeMillis());
-                for (Integer note :expectedNotes) {
-                    pianoWindow.highlightNote(note);
-                }
-                if (!expectedNotes.isEmpty()) {
+                long prevTime = animationPanel.getCurrentTimeMillis();
+                long nextTime = prevTime + delta;
+
+                if (awaitedNotes.isEmpty()) {
+                    // Inclusive lower bound only at t==0 to catch the very first chord
+                    long onsetStart = (prevTime == 0) ? -1 : prevTime;
+                    List<Integer> onsets = animationPanel.getNotesStartingBetween(onsetStart, nextTime);
+                    if (!onsets.isEmpty()) {
+                        awaitedNotes.clear();
+                        awaitedNotes.addAll(onsets);
+                        SwingUtilities.invokeLater(() -> {
+                            pianoWindow.releaseAllKeys();
+                            for (Integer n : awaitedNotes) pianoWindow.highlightNote(n);
+                        });
+                        return; // block until the correct notes are pressed
+                    }
+                } else {
                     synchronized (currentlyPressedNotes) {
                         List<Integer> pressed = new ArrayList<>(currentlyPressedNotes);
-                        List<Integer> expected = new ArrayList<>(expectedNotes);
-
                         pressed.sort(Integer::compareTo);
+                        List<Integer> expected = new ArrayList<>(awaitedNotes);
                         expected.sort(Integer::compareTo);
-
                         if (!pressed.equals(expected)) {
-                            return;
-                        }
-                        else{
-                            for (Integer note: expectedNotes){
-                                pianoWindow.releaseNote(note);
-                            }
+                            return; // still waiting, keep animation halted
                         }
                     }
+                    awaitedNotes.clear();
+                    SwingUtilities.invokeLater(pianoWindow::releaseAllKeys);
                 }
             }
 
@@ -118,22 +157,19 @@ public class PlaybackController {
     public void setPracticeMode(boolean enabled){
         this.isPracticeMode = enabled;
         pianoWindow.disableButtons(enabled);
-        // No automatic MIDI input initialization here anymore
+        if (enabled) {
+            midiPlayer.stop(); // ensure sequencer doesn't drive UI in practice
+            resetPracticeState();
+        }
     }
 
-    /**
-     * Call this from outside, after the user selects a MIDI input device.
-     * It opens the device and installs a Receiver to listen to MIDI input messages.
-     */
     public void setMidiInputDevice(MidiDevice device) {
         try {
             if (midiInputDevice != null && midiInputDevice.isOpen()) {
                 midiInputDevice.close();
             }
             midiInputDevice = device;
-            if (!device.isOpen()) {
-                device.open();
-            }
+            if (!device.isOpen()) device.open();
             device.getTransmitter().setReceiver(new Receiver() {
                 @Override
                 public void send(MidiMessage message, long timeStamp) {
@@ -158,9 +194,7 @@ public class PlaybackController {
                         }
                     }
                 }
-
-                @Override
-                public void close() {}
+                @Override public void close() {}
             });
         } catch (MidiUnavailableException e) {
             e.printStackTrace();
@@ -168,14 +202,23 @@ public class PlaybackController {
     }
 
     void onNoteOn(int midiNote){
+        if (isPracticeMode) return; // prevent listen-mode highlighting in practice
         SwingUtilities.invokeLater(() -> pianoWindow.highlightNote(midiNote));
     }
 
     private void onNoteOff(int midiNote){
+        if (isPracticeMode) return; // prevent listen-mode highlighting in practice
         SwingUtilities.invokeLater(() -> pianoWindow.releaseNote(midiNote));
     }
 
     void togglePlayback() {
+        if (isPracticeMode) {
+            // In practice, only pause/resume animation timer
+            animationPaused = !animationPaused;
+            if (!animationPaused) sharedTimer.start();
+            SwingUtilities.invokeLater(() -> pianoWindow.setPlayButtonText(animationPaused ? "||" : "▶"));
+            return;
+        }
         if (midiPlayer.isPlaying()) {
             midiPlayer.stop();
             animationPaused = true;
@@ -190,7 +233,6 @@ public class PlaybackController {
 
     public void preprocessNotes(Sequence sequence) {
         try {
-            // Use a **temporary sequencer** just for timing info
             Sequencer tempSequencer = MidiSystem.getSequencer(false);
             tempSequencer.open();
             tempSequencer.setSequence(sequence);
@@ -218,9 +260,7 @@ public class PlaybackController {
                             List<Long> onTimes = activeNotes.get(note);
                             if (onTimes != null && !onTimes.isEmpty()) {
                                 long onTime = onTimes.remove(0);
-
                                 boolean isBlackKey = pianoWindow.isBlackKey(note);
-
                                 animationPanel.addFallingNote(note, onTime, timeMillis, isBlackKey);
                             }
                         }
@@ -229,9 +269,17 @@ public class PlaybackController {
             }
 
             tempSequencer.close();
-
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    // --- helpers ---
+    private void resetPracticeState() {
+        synchronized (currentlyPressedNotes) {
+            currentlyPressedNotes.clear();
+        }
+        awaitedNotes.clear();
+        SwingUtilities.invokeLater(pianoWindow::releaseAllKeys);
     }
 }

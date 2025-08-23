@@ -1,3 +1,4 @@
+// java
 package com.Tbence132545.Melodigram.view;
 
 import javax.swing.*;
@@ -268,6 +269,21 @@ public class PianoWindow extends JFrame {
             }
             key.repaint();
         }
+    }
+
+    // NEW: Clear all key highlights (used when seeking/dragging in practice mode)
+    public void releaseAllKeys() {
+        for (Map.Entry<Integer, JButton> entry : noteToKeyButton.entrySet()) {
+            int midiNote = entry.getKey();
+            JButton key = entry.getValue();
+            String keyType = keyTypes[midiNote % 12];
+            if ("w".equals(keyType)) {
+                key.setBackground(Color.WHITE);
+            } else {
+                key.setBackground(Color.BLACK);
+            }
+        }
+        pianoPanel.repaint();
     }
 
     public void addSeekBar(JComponent seekBar) {

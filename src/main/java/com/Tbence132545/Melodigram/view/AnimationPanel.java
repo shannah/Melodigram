@@ -1,11 +1,15 @@
+// java
 package com.Tbence132545.Melodigram.view;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
+import java.util.function.LongConsumer;
 
 public class AnimationPanel extends JPanel {
     private final List<FallingNote> notes = new CopyOnWriteArrayList<>();
@@ -13,6 +17,17 @@ public class AnimationPanel extends JPanel {
     private long currentTimeMillis = 0;
     private final int lowestNote;
     private final int highestNote;
+
+    public static final double PIXELS_PER_MS = 0.1;
+    private long totalDurationMillis = 0;
+
+    // Drag state
+    private boolean dragging = false;
+    private int pressY = 0;
+    private long pressTime = 0;
+    private Runnable onDragStart;
+    private LongConsumer onTimeChange;
+    private Runnable onDragEnd;
 
     private static final long FALL_DURATION_MS = 2000;
 
@@ -22,7 +37,47 @@ public class AnimationPanel extends JPanel {
         this.keyInfoProvider = keyInfoProvider;
         this.lowestNote = lowestNote;
         this.highestNote = highestNote;
+
+        MouseAdapter drag = new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                dragging = true;
+                pressY = e.getY();
+                pressTime = currentTimeMillis;
+                setCursor(Cursor.getPredefinedCursor(Cursor.N_RESIZE_CURSOR));
+                if (onDragStart != null) onDragStart.run();
+            }
+
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                if (!dragging) return;
+                int dy = e.getY() - pressY;
+                long newTime = pressTime - Math.round(dy / PIXELS_PER_MS);
+                newTime = Math.max(0, Math.min(newTime, totalDurationMillis));
+                updatePlaybackTime(newTime);
+                repaint();
+                if (onTimeChange != null) onTimeChange.accept(newTime);
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                if (!dragging) return;
+                dragging = false;
+                setCursor(Cursor.getDefaultCursor());
+                if (onDragEnd != null) onDragEnd.run();
+            }
+        };
+        addMouseListener(drag);
+        addMouseMotionListener(drag);
     }
+
+    public void setTotalDurationMillis(long totalDurationMillis) {
+        this.totalDurationMillis = Math.max(0, totalDurationMillis);
+    }
+
+    public void setOnDragStart(Runnable onDragStart) { this.onDragStart = onDragStart; }
+    public void setOnTimeChange(LongConsumer onTimeChange) { this.onTimeChange = onTimeChange; }
+    public void setOnDragEnd(Runnable onDragEnd) { this.onDragEnd = onDragEnd; }
 
     public long getCurrentTimeMillis() {
         return currentTimeMillis;
@@ -33,6 +88,7 @@ public class AnimationPanel extends JPanel {
         repaint();
     }
 
+    // Original practice helper (still used elsewhere if needed)
     public List<Integer> getActiveNotesToBePlayed(long currentTimeMillis) {
         List<Integer> active = new ArrayList<>();
         for (FallingNote note : notes) {
@@ -41,6 +97,18 @@ public class AnimationPanel extends JPanel {
             }
         }
         return active;
+    }
+
+    // NEW: used to detect onsets crossed between frames for practice gating
+    public List<Integer> getNotesStartingBetween(long startMs, long endMs) {
+        List<Integer> onsets = new ArrayList<>();
+        if (endMs < startMs) return onsets;
+        for (FallingNote note : notes) {
+            if (note.noteOnTime > startMs && note.noteOnTime <= endMs) {
+                onsets.add(note.midiNote);
+            }
+        }
+        return onsets;
     }
 
     public void updatePlaybackTime(long timeMillis) {
@@ -59,10 +127,9 @@ public class AnimationPanel extends JPanel {
         Graphics2D g2 = (Graphics2D) g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // 1. Draw octave separator lines
         g2.setColor(new Color(100, 100, 100, 150));
         for (int midiNote = lowestNote; midiNote <= highestNote; midiNote++) {
-            if (midiNote % 12 == 0) { // C notes
+            if (midiNote % 12 == 0) {
                 PianoWindow.KeyInfo keyInfo = keyInfoProvider.apply(midiNote);
                 if (keyInfo != null && !keyInfo.isBlack()) {
                     int x = keyInfo.x();
@@ -71,9 +138,6 @@ public class AnimationPanel extends JPanel {
             }
         }
 
-
-
-        // 3. Draw falling notes
         for (FallingNote note : notes) {
             note.draw(g2, currentTimeMillis, panelHeight);
         }
@@ -93,15 +157,17 @@ public class AnimationPanel extends JPanel {
 
         void draw(Graphics2D g, long currentMillis, int panelHeight) {
             long noteDuration = noteOffTime - noteOnTime;
-            double pixelsPerMs = 0.1;
+            double pixelsPerMs = PIXELS_PER_MS;
             int noteHeight = (int) (noteDuration * pixelsPerMs);
 
             long fallStartTime = noteOnTime - FALL_DURATION_MS;
 
             if (currentMillis < fallStartTime || currentMillis > noteOffTime) return;
 
-            int x = keyInfoProvider.apply(midiNote).x();
-            int width = keyInfoProvider.apply(midiNote).width();
+            PianoWindow.KeyInfo keyInfo = keyInfoProvider.apply(midiNote);
+            if (keyInfo == null) return;
+            int x = keyInfo.x();
+            int width = keyInfo.width();
 
             int bottomY;
             if (currentMillis < noteOnTime) {
@@ -122,7 +188,7 @@ public class AnimationPanel extends JPanel {
 
             int topY = bottomY - noteHeight;
             if (topY < panelHeight) {
-                setNoteColor(g);
+                setNoteColor((Graphics2D) g);
                 g.fillRoundRect(x, topY, width, noteHeight, 10, 10);
             }
         }
