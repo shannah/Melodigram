@@ -1,0 +1,166 @@
+name: Build + jpackage + Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 23
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Make gradlew executable (non-Windows)
+        if: runner.os != 'Windows'
+        run: chmod +x gradlew
+
+      - name: Build fat jar
+        run: |
+          ./gradlew --no-daemon shadowJar
+        shell: bash
+
+      # --------------------------
+      # Package fat-jar + launcher
+      # --------------------------
+      - name: Package fat jar (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          Remove-Item -Recurse -Force package -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path package
+          Copy-Item build\libs\Melodigram.jar package\
+          Set-Content -Path package\run.bat -Value '@echo off`r`njava -jar "%~dp0Melodigram.jar"'
+          Compress-Archive -Path package -DestinationPath Melodigram-fat-windows.zip
+
+      - name: Package fat jar (mac/linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          rm -rf package || true
+          mkdir -p package
+          cp build/libs/Melodigram.jar package/
+          cat > package/run.sh <<'EOS'
+#!/bin/bash
+SCRIPT_DIR="$(cd -- "$(dirname "$0")" >/dev/null 2>&1 && pwd)"
+exec java -jar "$SCRIPT_DIR/Melodigram.jar"
+EOS
+          chmod +x package/run.sh
+          name=$(echo "$RUNNER_OS" | tr '[:upper:]' '[:lower:]')
+          zip -r -q Melodigram-fat-${name}.zip package
+
+      # --------------------------
+      # Prepare platform tools
+      # --------------------------
+      - name: Install WiX (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          choco install wixtoolset --no-progress -y
+          refreshenv
+
+      - name: Ensure fakeroot (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fakeroot
+
+      # --------------------------
+      # jpackage: platform-specific
+      # --------------------------
+      - name: Run jpackage (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        env:
+          APP_NAME: Melodigram
+          MAIN_CLASS: com.Tbence132545.Melodigram.Main
+        run: |
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          & jpackage --type exe `
+            --input build\libs `
+            --main-jar Melodigram.jar `
+            --main-class $env:MAIN_CLASS `
+            --name $env:APP_NAME `
+            --dest dist
+          Compress-Archive -Path dist\* -DestinationPath Melodigram-jpackage-windows.zip
+
+      - name: Run jpackage (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APP_NAME: Melodigram
+          MAIN_CLASS: com.Tbence132545.Melodigram.Main
+        run: |
+          mkdir -p dist
+          jpackage \
+            --type dmg \
+            --input build/libs \
+            --main-jar Melodigram.jar \
+            --main-class $MAIN_CLASS \
+            --name $APP_NAME \
+            --dest dist
+          zip -r -q Melodigram-jpackage-mac.zip dist
+
+      - name: Run jpackage (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          APP_NAME: Melodigram
+          MAIN_CLASS: com.Tbence132545.Melodigram.Main
+        run: |
+          mkdir -p dist
+          jpackage \
+            --type deb \
+            --input build/libs \
+            --main-jar Melodigram.jar \
+            --main-class $MAIN_CLASS \
+            --name $APP_NAME \
+            --dest dist
+          zip -r -q Melodigram-jpackage-linux.zip dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Melodigram-${{ matrix.os }}
+          path: |
+            Melodigram-fat-*.zip
+            Melodigram-jpackage-*.zip
+            dist/**
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release (attach all artifacts)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
