@@ -37,8 +37,13 @@ jobs:
         if: runner.os != 'Windows'
         run: chmod +x gradlew
 
-      - name: Build fat jar
-        run: ./gradlew --no-daemon shadowJar
+      - name: Build and Rename fat jar
+        run: |
+          ./gradlew --no-daemon shadowJar
+          # The shadow jar task creates a file with a version/classifier.
+          # We find that single jar and rename it to a consistent name for subsequent steps.
+          JAR_FILE=$(find build/libs -name "*.jar")
+          mv "$JAR_FILE" build/libs/Melodigram.jar
         shell: bash
 
       # --------------------------
@@ -116,7 +121,7 @@ jobs:
           mkdir -p dist
           jpackage \
             --type dmg \
-            --input build\libs \
+            --input build/libs \
             --main-jar Melodigram.jar \
             --main-class $MAIN_CLASS \
             --name $APP_NAME \
