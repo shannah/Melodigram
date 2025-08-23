@@ -53,23 +53,23 @@ jobs:
           New-Item -ItemType Directory -Path package
           Copy-Item build\libs\Melodigram.jar package\
           @"
-@echo off
-java -jar "%~dp0Melodigram.jar"
-"@ | Set-Content -Path package\run.bat -Encoding ASCII
-          Compress-Archive -Path package -DestinationPath Melodigram-fat-windows.zip
-
-      - name: Package fat jar (mac/linux)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          rm -rf package || true
-          mkdir -p package
-          cp build/libs/Melodigram.jar package/
-          cat > package/run.sh <<'EOS'
-#!/bin/bash
-SCRIPT_DIR="$(cd -- "$(dirname "$0")" >/dev/null 2>&1 && pwd)"
-exec java -jar "$SCRIPT_DIR/Melodigram.jar"
-EOS
+            @echo off
+            java -jar "%~dp0Melodigram.jar"
+          "@ | Set-Content -Path package\run.bat -Encoding ASCII
+                    Compress-Archive -Path package -DestinationPath Melodigram-fat-windows.zip
+          
+                - name: Package fat jar (mac/linux)
+                  if: runner.os != 'Windows'
+                  shell: bash
+                  run: |
+                    rm -rf package || true
+                    mkdir -p package
+                    cp build/libs/Melodigram.jar package/
+                    cat > package/run.sh <<'EOS'
+          #!/bin/bash
+          SCRIPT_DIR="$(cd -- "$(dirname "$0")" >/dev/null 2>&1 && pwd)"
+          exec java -jar "$SCRIPT_DIR/Melodigram.jar"
+          EOS
           chmod +x package/run.sh
           name=$(echo "$RUNNER_OS" | tr '[:upper:]' '[:lower:]')
           zip -r -q Melodigram-fat-${name}.zip package
