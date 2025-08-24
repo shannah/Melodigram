@@ -20,8 +20,11 @@ public class AnimationPanel extends JPanel {
     private static final Color COLOR_GRID_LINE = new Color(100, 100, 100, 150);
     private static final Color COLOR_BLACK_NOTE = new Color(255, 100, 100, 180);
     private static final Color COLOR_WHITE_NOTE = new Color(255, 215, 0, 180);
-    private static final Color COLOR_LEFT_HAND = new Color(30, 144, 255, 200);  // Dodger Blue
-    private static final Color COLOR_RIGHT_HAND = new Color(255, 69, 0, 200); // Orange Red
+    private static final Color COLOR_LEFT_WHITE = new Color(135, 206, 250, 220); // Light Sky Blue
+    private static final Color COLOR_LEFT_BLACK = new Color(25, 25, 112, 220);   // Midnight Blue
+    private static final Color COLOR_RIGHT_WHITE = new Color(250, 128, 114, 220); // Salmon
+    private static final Color COLOR_RIGHT_BLACK = new Color(178, 34, 34, 220);  // Firebrick
+
     private static final Font NOTE_TEXT_FONT = new Font("SansSerif", Font.BOLD, 16);
     private static final Color NOTE_TEXT_COLOR = Color.WHITE;
     // --- State ---
@@ -239,11 +242,20 @@ public class AnimationPanel extends JPanel {
 
             int topY = bottomY - noteHeight;
 
-            // NEW: Update the bounds rectangle on every draw call
             bounds.setBounds(keyInfo.x(), topY, keyInfo.width(), noteHeight);
 
             if (topY < panelHeight && bottomY > 0) {
-                // NEW: Choose color based on assigned hand
+
+                if (hand == Hands.LEFT) {
+                    g.setColor(isBlackKey ? COLOR_LEFT_BLACK : COLOR_LEFT_WHITE);
+                } else if (hand == Hands.RIGHT) {
+                    g.setColor(isBlackKey ? COLOR_RIGHT_BLACK : COLOR_RIGHT_WHITE);
+                } else {
+                    g.setColor(isBlackKey ? COLOR_BLACK_NOTE : COLOR_WHITE_NOTE);
+                }
+
+
+                g.fillRoundRect(bounds.x, bounds.y, bounds.width, noteHeight, NOTE_CORNER_RADIUS, NOTE_CORNER_RADIUS);
                 if(hand!=null){
                     String text = (hand == Hands.LEFT) ? "L": "R";
                     g.setFont(NOTE_TEXT_FONT);
@@ -255,14 +267,6 @@ public class AnimationPanel extends JPanel {
                     int textY = bounds.y + (bounds.height + textHeight) / 2;
                     g.drawString(text, textX, textY);
                 }
-                if (hand == Hands.LEFT) {
-                    g.setColor(COLOR_LEFT_HAND);
-                } else if (hand == Hands.RIGHT) {
-                    g.setColor(COLOR_RIGHT_HAND);
-                } else {
-                    g.setColor(isBlackKey ? COLOR_BLACK_NOTE : COLOR_WHITE_NOTE);
-                }
-                g.fillRoundRect(bounds.x, bounds.y, bounds.width, noteHeight, NOTE_CORNER_RADIUS, NOTE_CORNER_RADIUS);
             }
         }
 
