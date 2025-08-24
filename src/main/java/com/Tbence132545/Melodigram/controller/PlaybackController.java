@@ -30,6 +30,7 @@ public class PlaybackController {
     private boolean playbackStarted = false;
     private boolean animationPaused = false;
     private boolean isPracticeMode = false;
+    private boolean isEditingMode= false;
     private boolean wasPlayingBeforeDrag = false;
 
     //   MIDI Input and Practice Mode State  
@@ -74,6 +75,8 @@ public class PlaybackController {
         pianoWindow.setForwardButtonListener(e -> seekAndPreserveState(midiPlayer.getSequencer().getMicrosecondPosition() + 10_000_000));
         pianoWindow.setBackwardButtonListener(e -> seekAndPreserveState(midiPlayer.getSequencer().getMicrosecondPosition() - 10_000_000));
 
+        pianoWindow.setSaveButtonListener(e -> handleSave());
+
         seekBar.setSeekListener(this::seekAndPreserveState);
 
         animationPanel.setOnDragStart(this::handleDragStart);
@@ -107,10 +110,21 @@ public class PlaybackController {
         seekBar.updateProgress();
     }
 
+    // AROUND LINE 115
     private void handleInitialStartup(long now) {
         if (midiPlayer.getSequencer().getMicrosecondLength() > 0 && now - startTime > STARTUP_DELAY_MS) {
+            // This call enables all buttons, including re-enabling interaction on the seek bar.
             pianoWindow.disableButtons(false);
-            if (!isPracticeMode) {
+
+            // --- ADD THIS BLOCK TO FIX THE SEEK BAR ---
+            // This check immediately overrides the above call if we are in editing mode,
+            // ensuring the seek bar remains non-interactive.
+            if (isEditingMode) {
+                seekBar.setUserInteractionEnabled(false);
+            }
+            // --- END OF FIX ---
+
+            if (!isPracticeMode && !isEditingMode) {
                 midiPlayer.play();
             }
             playbackStarted = true;
@@ -188,27 +202,33 @@ public class PlaybackController {
     }
 
     private void handleDragEnd() {
-        if (isPracticeMode) {
+        // --- REPLACE THIS ENTIRE METHOD'S LOGIC ---
+        if (isEditingMode) {
+            // In editing mode, we ALWAYS want the animation to remain paused after a drag.
+            animationPaused = true;
+        } else if (isPracticeMode) {
             // In practice mode, dragging is for navigation. Always resume the animation.
             animationPaused = false;
         } else {
-            // In listen/watch mode, respect the state from before the drag began.
-            // If it was paused, it stays paused. If it was playing, it resumes.
+            // In normal watch/listen mode, respect the state from before the drag began.
             animationPaused = !wasPlayingBeforeDrag;
             if (wasPlayingBeforeDrag) {
                 midiPlayer.play();
             }
         }
-        // Reset the drag state for the next operation in either mode.
+        // Reset the drag state for the next operation in all modes.
         wasPlayingBeforeDrag = false;
     }
 
+    // AROUND LINE 210
     private void seekAndPreserveState(long newMicroseconds) {
-        if (isPracticeMode) {
+        // --- ADD isEditingMode TO THIS CHECK ---
+        if (isPracticeMode || isEditingMode) {
             updateSequencerPosition(newMicroseconds);
-            return;
+            return; // Stop here for these modes
         }
 
+        // This part below will now only run for the normal "watch" mode
         boolean wasPlaying = midiPlayer.isPlaying();
         if (wasPlaying) midiPlayer.stop();
 
@@ -223,10 +243,11 @@ public class PlaybackController {
         animationPanel.updatePlaybackTime(clampedMicroseconds / 1000);
         resetPracticeState();
         lastTickTime = System.currentTimeMillis();
+        seekBar.updateProgress();
     }
 
     void togglePlayback() {
-        if(!isPracticeMode){
+        if(!isPracticeMode && !isEditingMode){
             if (midiPlayer.isPlaying()) {
                 midiPlayer.stop();
                 animationPaused = true;
@@ -242,8 +263,28 @@ public class PlaybackController {
 
     }
 
-    //   Public API and MIDI Methods  
+    //   Public API and MIDI Methods
 
+    // AROUND LINE 268
+    public void setEditingMode(boolean enabled) {
+        this.isEditingMode = enabled;
+        animationPanel.setHandAssignmentMode(enabled);
+        pianoWindow.setEditingMode(enabled);
+
+        // Use !enabled to correctly set the state.
+        // If editing is ON (enabled=true), interaction should be OFF (setUserInteractionEnabled(false)).
+        seekBar.setUserInteractionEnabled(!enabled);
+
+        if (enabled) {
+            if (midiPlayer.isPlaying()) {
+                midiPlayer.stop();
+            }
+            animationPaused = true;
+            pianoWindow.setPlayButtonText("▶");
+            updateSequencerPosition(0);
+            pianoWindow.repaint();
+        }
+    }
     public void setPracticeMode(boolean enabled) {
         this.isPracticeMode = enabled;
         pianoWindow.disableButtons(enabled);
@@ -263,21 +304,28 @@ public class PlaybackController {
             e.printStackTrace();
         }
     }
-
+    private void handleSave() {
+        if (!isEditingMode) return; // Safety check
+        System.out.println("Save button clicked! Time to save the hand data.");
+        JOptionPane.showMessageDialog(pianoWindow, "Hand assignments saved (placeholder)!", "Saved", JOptionPane.INFORMATION_MESSAGE);
+    }
     //   Private MIDI Callbacks and Helpers  
 
     private void onNoteOn(int midiNote) {
-        if (!isPracticeMode) {
+        // --- CHANGE THIS LINE ---
+        // OLD: if (!isPracticeMode) {
+        if (!isPracticeMode && !isEditingMode) { // NEW: Also ignore in editing mode
             SwingUtilities.invokeLater(() -> pianoWindow.highlightNote(midiNote));
         }
     }
 
     private void onNoteOff(int midiNote) {
-        if (!isPracticeMode) {
+        // --- CHANGE THIS LINE ---
+        // OLD: if (!isPracticeMode) {
+        if (!isPracticeMode && !isEditingMode) { // NEW: Also ignore in editing mode
             SwingUtilities.invokeLater(() -> pianoWindow.releaseNote(midiNote));
         }
     }
-
     private void resetPracticeState() {
         synchronized (currentlyPressedNotes) {
             currentlyPressedNotes.clear();

@@ -20,7 +20,10 @@ public class AnimationPanel extends JPanel {
     private static final Color COLOR_GRID_LINE = new Color(100, 100, 100, 150);
     private static final Color COLOR_BLACK_NOTE = new Color(255, 100, 100, 180);
     private static final Color COLOR_WHITE_NOTE = new Color(255, 215, 0, 180);
-
+    private static final Color COLOR_LEFT_HAND = new Color(30, 144, 255, 200);  // Dodger Blue
+    private static final Color COLOR_RIGHT_HAND = new Color(255, 69, 0, 200); // Orange Red
+    private static final Font NOTE_TEXT_FONT = new Font("SansSerif", Font.BOLD, 16);
+    private static final Color NOTE_TEXT_COLOR = Color.WHITE;
     // --- State ---
     private final List<FallingNote> notes = new CopyOnWriteArrayList<>();
     private final Function<Integer, PianoWindow.KeyInfo> keyInfoProvider;
@@ -28,6 +31,7 @@ public class AnimationPanel extends JPanel {
     private long totalDurationMillis = 0;
     private final int lowestNote;
     private final int highestNote;
+    private boolean isHandAssignmentEnabled = false;
 
     // --- Callbacks for Controller ---
     private Runnable onDragStart;
@@ -45,9 +49,14 @@ public class AnimationPanel extends JPanel {
         TimelineDragHandler dragHandler = new TimelineDragHandler();
         addMouseListener(dragHandler);
         addMouseMotionListener(dragHandler);
+        NoteClickHandler clickHandler = new NoteClickHandler();
+        addMouseListener(clickHandler);
     }
 
     // --- Public API for Controller ---
+    public void setHandAssignmentMode(boolean enabled) {
+        this.isHandAssignmentEnabled = enabled;
+    }
 
     public void setTotalDurationMillis(long totalDurationMillis) {
         this.totalDurationMillis = Math.max(0, totalDurationMillis);
@@ -115,6 +124,34 @@ public class AnimationPanel extends JPanel {
 
     // --- Inner Classes ---
 
+    private class NoteClickHandler extends MouseAdapter {
+        @Override
+        public void mousePressed(MouseEvent e) {
+            // Only process clicks if the mode is enabled
+            if (!isHandAssignmentEnabled) {
+                return;
+            }
+
+            // Iterate backwards to click the "top" note if they overlap
+            for (int i = notes.size() - 1; i >= 0; i--) {
+                FallingNote note = notes.get(i);
+                if (note.getBounds().contains(e.getPoint())) {
+
+                    if (SwingUtilities.isRightMouseButton(e)) {
+                        note.setHand(FallingNote.Hands.RIGHT);
+                    } else if (SwingUtilities.isLeftMouseButton(e)) {
+                        // In assignment mode, left click assigns left hand
+                        note.setHand(FallingNote.Hands.LEFT);
+                    }
+
+                    repaint(); // Redraw to show color change
+                    return; // Stop after handling one note
+                }
+            }
+        }
+    }
+
+
     /**
      * An inner class that cleanly encapsulates all logic and state for handling timeline dragging.
      */
@@ -160,23 +197,34 @@ public class AnimationPanel extends JPanel {
     /**
      * Represents a single falling note and handles its own drawing logic.
      */
+
     private class FallingNote {
+        private enum Hands {
+            LEFT, RIGHT
+        }
         private final int midiNote;
         private final long noteOnTime;
         private final long noteOffTime;
         private final boolean isBlackKey;
-
+        private Hands hand = null;
+        private final Rectangle bounds = new Rectangle();
         public FallingNote(int midiNote, long on, long off, boolean isBlackKey) {
             this.midiNote = midiNote;
             this.noteOnTime = on;
             this.noteOffTime = off;
             this.isBlackKey = isBlackKey;
         }
-
+        public void setHand(Hands hand) {
+            this.hand = hand;
+        }
+        public Rectangle getBounds() {
+            return this.bounds;
+        }
         void draw(Graphics2D g, long currentMillis, int panelHeight) {
             long fallStartTime = noteOnTime - NOTE_FALL_DURATION_MS;
             if (currentMillis < fallStartTime || currentMillis > noteOffTime) {
-                return; // Note is not visible yet or has finished
+                bounds.setBounds(0, 0, 0, 0); // Not visible, empty bounds
+                return;
             }
 
             PianoWindow.KeyInfo keyInfo = keyInfoProvider.apply(midiNote);
@@ -185,17 +233,36 @@ public class AnimationPanel extends JPanel {
             long noteDuration = noteOffTime - noteOnTime;
             int noteHeight = (int) (noteDuration * PIXELS_PER_MILLISECOND);
 
-            // The bottom of the note rectangle's position on the Y-axis
             int bottomY = (currentMillis < noteOnTime)
                     ? calculateFallingY(currentMillis, fallStartTime, noteHeight, panelHeight)
                     : calculateSinkingY(currentMillis, noteHeight, panelHeight);
 
             int topY = bottomY - noteHeight;
 
-            // Only draw if the note is at all visible on the panel
+            // NEW: Update the bounds rectangle on every draw call
+            bounds.setBounds(keyInfo.x(), topY, keyInfo.width(), noteHeight);
+
             if (topY < panelHeight && bottomY > 0) {
-                g.setColor(isBlackKey ? COLOR_BLACK_NOTE : COLOR_WHITE_NOTE);
-                g.fillRoundRect(keyInfo.x(), topY, keyInfo.width(), noteHeight, NOTE_CORNER_RADIUS, NOTE_CORNER_RADIUS);
+                // NEW: Choose color based on assigned hand
+                if(hand!=null){
+                    String text = (hand == Hands.LEFT) ? "L": "R";
+                    g.setFont(NOTE_TEXT_FONT);
+                    g.setColor(NOTE_TEXT_COLOR);
+                    FontMetrics fm = g.getFontMetrics();
+                    int textWidth = fm.stringWidth(text);
+                    int textHeight = fm.getAscent();
+                    int textX = bounds.x + (bounds.width - textWidth) / 2;
+                    int textY = bounds.y + (bounds.height + textHeight) / 2;
+                    g.drawString(text, textX, textY);
+                }
+                if (hand == Hands.LEFT) {
+                    g.setColor(COLOR_LEFT_HAND);
+                } else if (hand == Hands.RIGHT) {
+                    g.setColor(COLOR_RIGHT_HAND);
+                } else {
+                    g.setColor(isBlackKey ? COLOR_BLACK_NOTE : COLOR_WHITE_NOTE);
+                }
+                g.fillRoundRect(bounds.x, bounds.y, bounds.width, noteHeight, NOTE_CORNER_RADIUS, NOTE_CORNER_RADIUS);
             }
         }
 

@@ -36,6 +36,7 @@ public class PianoWindow extends JFrame {
     private final JButton backButton;
     private final JButton backwardButton;
     private final JButton forwardButton;
+    private final JButton saveButton;
     private SeekBar seekBar;
 
     // --- Piano State ---
@@ -57,7 +58,8 @@ public class PianoWindow extends JFrame {
         JPanel controlPanel = createControlPanel(this.playButton = new JButton("||"),
                 this.backButton = new JButton("←"),
                 this.backwardButton = new JButton("⏪"),
-                this.forwardButton = new JButton("⏩"));
+                this.forwardButton = new JButton("⏩"),
+                this.saveButton = new JButton("Save"));
 
         this.pianoPanel = createPianoPanel();
         this.animationPanel = new AnimationPanel(this::getKeyInfo, this.lowestNote, this.highestNote);
@@ -82,7 +84,8 @@ public class PianoWindow extends JFrame {
         getContentPane().setBackground(new Color(230, 230, 230));
     }
 
-    private JPanel createControlPanel(JButton play, JButton back, JButton backward, JButton forward) {
+    // Update the method signature to accept the new button
+    private JPanel createControlPanel(JButton play, JButton back, JButton backward, JButton forward, JButton save) {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(COLOR_CONTROL_PANEL_BG);
 
@@ -94,13 +97,22 @@ public class PianoWindow extends JFrame {
         styleControlButton(play, buttonSize, hoverEffect);
         styleControlButton(forward, buttonSize, hoverEffect);
 
+        // --- NEW: Style the save button and hide it by default ---
+        styleControlButton(save, new Dimension(80, 50), hoverEffect);
+        save.setVisible(false);
+        // ---
+
         GridBagConstraints gbc = new GridBagConstraints();
+
+        // Back Button (Far Left - gridx=0)
+        gbc.gridx = 0;
         gbc.gridheight = 2;
         gbc.anchor = GridBagConstraints.WEST;
         gbc.fill = GridBagConstraints.VERTICAL;
         gbc.insets = new Insets(5, 5, 5, 5);
         panel.add(back, gbc);
 
+        // Center Buttons Panel (Middle - gridx=1)
         JPanel centerButtonPanel = new JPanel(new GridBagLayout());
         centerButtonPanel.setOpaque(false);
         GridBagConstraints cbc = new GridBagConstraints();
@@ -111,10 +123,20 @@ public class PianoWindow extends JFrame {
 
         gbc = new GridBagConstraints();
         gbc.gridx = 1;
-        gbc.weightx = 1.0;
+        gbc.weightx = 1.0; // This makes the center panel stretch to fill space
         gbc.anchor = GridBagConstraints.CENTER;
         gbc.fill = GridBagConstraints.VERTICAL;
         panel.add(centerButtonPanel, gbc);
+
+        // --- NEW: Save Button (Far Right - gridx=2) ---
+        gbc = new GridBagConstraints();
+        gbc.gridx = 2; // Place it in the third column
+        gbc.gridheight = 2;
+        gbc.anchor = GridBagConstraints.EAST; // Pin it to the right side
+        gbc.fill = GridBagConstraints.VERTICAL;
+        gbc.insets = new Insets(5, 5, 5, 5);
+        panel.add(save, gbc);
+        // ---
 
         return panel;
     }
@@ -262,7 +284,9 @@ public class PianoWindow extends JFrame {
         // Add to the control panel, not the frame
         ((JPanel)getContentPane().getComponent(0)).add(seekBarComponent, gbc);
     }
-
+    public void setEditingMode(boolean isEditing){
+        saveButton.setVisible(isEditing);
+    }
     public void disableButtons(boolean shouldDisable) {
         playButton.setEnabled(!shouldDisable);
         backwardButton.setEnabled(!shouldDisable);
@@ -299,6 +323,7 @@ public class PianoWindow extends JFrame {
     public void setBackButtonListener(ActionListener listener) { backButton.addActionListener(listener); }
     public void setBackwardButtonListener(ActionListener listener) { backwardButton.addActionListener(listener); }
     public void setForwardButtonListener(ActionListener listener) { forwardButton.addActionListener(listener); }
+    public void setSaveButtonListener(ActionListener listener) { saveButton.addActionListener(listener); }
 
     // --- Private Helper Methods ---
 

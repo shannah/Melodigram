@@ -61,7 +61,10 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
 
     @Override
     public void onAssignHandsClicked(String midiFilename) {
-        //This is where I'll handle how the hand assignment window will look like.
+        // This is where we launch the PianoWindow in editing mode
+        // The logic is very similar to onWatchAndListenClicked
+        String simpleFilename = midiFilename.replace("midi/", "");
+        openPianoWindowForEditing(simpleFilename);
     }
     @Override
     public void onWatchAndListenClicked(String midiFilename) {
@@ -79,7 +82,33 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
         });
         selector.setVisible(true);
     }
+    private void openPianoWindowForEditing(String midiFileName) {
+        SwingUtilities.invokeLater(() -> {
+            try {
+                MidiFileService.MidiData midiData = midiFileService.loadMidiData(midiFileName);
+                int[] range = MidiPlayer.extractNoteRange(midiData.sequence());
+                PianoWindow pianoWindow = new PianoWindow(range[0], range[1]);
+                PlaybackController playbackController = new PlaybackController(midiData.player(), pianoWindow);
 
+                // *** THE KEY STEP ***
+                // Put the application into hand assignment mode
+                playbackController.setEditingMode(true);
+
+                pianoWindow.setBackButtonListener(e -> {
+                    midiData.player().stop();
+                    pianoWindow.dispose();
+                    view.setVisible(true);
+                });
+
+                pianoWindow.setVisible(true);
+                view.setVisible(false);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(view, "Error Opening Editor:\n" + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+    }
     private void openPianoWindow(String midiFileName, boolean isPractice, MidiDevice.Info... midiDeviceInfo) {
         SwingUtilities.invokeLater(() -> {
             MidiDevice inputDevice = null;
