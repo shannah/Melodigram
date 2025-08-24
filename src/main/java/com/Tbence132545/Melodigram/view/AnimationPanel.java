@@ -12,64 +12,42 @@ import java.util.function.Function;
 import java.util.function.LongConsumer;
 
 public class AnimationPanel extends JPanel {
+
+    // --- Drawing & Animation Constants ---
+    private static final double PIXELS_PER_MILLISECOND = 0.1;
+    private static final long NOTE_FALL_DURATION_MS = 2000;
+    private static final int NOTE_CORNER_RADIUS = 10;
+    private static final Color COLOR_GRID_LINE = new Color(100, 100, 100, 150);
+    private static final Color COLOR_BLACK_NOTE = new Color(255, 100, 100, 180);
+    private static final Color COLOR_WHITE_NOTE = new Color(255, 215, 0, 180);
+
+    // --- State ---
     private final List<FallingNote> notes = new CopyOnWriteArrayList<>();
     private final Function<Integer, PianoWindow.KeyInfo> keyInfoProvider;
     private long currentTimeMillis = 0;
+    private long totalDurationMillis = 0;
     private final int lowestNote;
     private final int highestNote;
 
-    public static final double PIXELS_PER_MS = 0.1;
-    private long totalDurationMillis = 0;
-
-    // Drag state
-    private boolean dragging = false;
-    private int pressY = 0;
-    private long pressTime = 0;
+    // --- Callbacks for Controller ---
     private Runnable onDragStart;
     private LongConsumer onTimeChange;
     private Runnable onDragEnd;
 
-    private static final long FALL_DURATION_MS = 2000;
-
     public AnimationPanel(Function<Integer, PianoWindow.KeyInfo> keyInfoProvider, int lowestNote, int highestNote) {
-        setPreferredSize(new Dimension(800, 200));
-        setBackground(Color.BLACK);
         this.keyInfoProvider = keyInfoProvider;
         this.lowestNote = lowestNote;
         this.highestNote = highestNote;
 
-        MouseAdapter drag = new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) {
-                dragging = true;
-                pressY = e.getY();
-                pressTime = currentTimeMillis;
-                setCursor(Cursor.getPredefinedCursor(Cursor.N_RESIZE_CURSOR));
-                if (onDragStart != null) onDragStart.run();
-            }
+        setBackground(Color.BLACK);
 
-            @Override
-            public void mouseDragged(MouseEvent e) {
-                if (!dragging) return;
-                int dy = e.getY() - pressY;
-                long newTime = pressTime - Math.round(dy / PIXELS_PER_MS);
-                newTime = Math.max(0, Math.min(newTime, totalDurationMillis));
-                updatePlaybackTime(newTime);
-                repaint();
-                if (onTimeChange != null) onTimeChange.accept(newTime);
-            }
-
-            @Override
-            public void mouseReleased(MouseEvent e) {
-                if (!dragging) return;
-                dragging = false;
-                setCursor(Cursor.getDefaultCursor());
-                if (onDragEnd != null) onDragEnd.run();
-            }
-        };
-        addMouseListener(drag);
-        addMouseMotionListener(drag);
+        // Encapsulated drag handler is much cleaner
+        TimelineDragHandler dragHandler = new TimelineDragHandler();
+        addMouseListener(dragHandler);
+        addMouseMotionListener(dragHandler);
     }
+
+    // --- Public API for Controller ---
 
     public void setTotalDurationMillis(long totalDurationMillis) {
         this.totalDurationMillis = Math.max(0, totalDurationMillis);
@@ -88,18 +66,14 @@ public class AnimationPanel extends JPanel {
         repaint();
     }
 
-    // Original practice helper (still used elsewhere if needed)
-    public List<Integer> getActiveNotesToBePlayed(long currentTimeMillis) {
-        List<Integer> active = new ArrayList<>();
-        for (FallingNote note : notes) {
-            if (Math.abs(note.noteOnTime - currentTimeMillis) < 50) {
-                active.add(note.midiNote);
-            }
-        }
-        return active;
+    public void updatePlaybackTime(long timeMillis) {
+        this.currentTimeMillis = timeMillis;
     }
 
-    // NEW: used to detect onsets crossed between frames for practice gating
+    public void addFallingNote(int midiNote, long noteOnTime, long noteOffTime, boolean isBlackKey) {
+        notes.add(new FallingNote(midiNote, noteOnTime, noteOffTime, isBlackKey));
+    }
+
     public List<Integer> getNotesStartingBetween(long startMs, long endMs) {
         List<Integer> onsets = new ArrayList<>();
         if (endMs < startMs) return onsets;
@@ -111,42 +85,86 @@ public class AnimationPanel extends JPanel {
         return onsets;
     }
 
-    public void updatePlaybackTime(long timeMillis) {
-        this.currentTimeMillis = timeMillis;
-    }
-
-    public void addFallingNote(int midiNote, long noteOnTime, long noteOffTime, boolean isBlackKey) {
-        notes.add(new FallingNote(midiNote, noteOnTime, noteOffTime, isBlackKey));
-    }
+    // --- Drawing Logic ---
 
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        int panelHeight = getHeight();
+        Graphics2D g2d = (Graphics2D) g;
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        Graphics2D g2 = (Graphics2D) g;
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-        g2.setColor(new Color(100, 100, 100, 150));
-        for (int midiNote = lowestNote; midiNote <= highestNote; midiNote++) {
-            if (midiNote % 12 == 0) {
-                PianoWindow.KeyInfo keyInfo = keyInfoProvider.apply(midiNote);
-                if (keyInfo != null && !keyInfo.isBlack()) {
-                    int x = keyInfo.x();
-                    g2.drawLine(x, 0, x, panelHeight);
-                }
-            }
-        }
+        drawGridLines(g2d);
 
         for (FallingNote note : notes) {
-            note.draw(g2, currentTimeMillis, panelHeight);
+            note.draw(g2d, currentTimeMillis, getHeight());
         }
     }
 
-    public class FallingNote {
-        int midiNote;
-        long noteOnTime, noteOffTime;
-        boolean isBlackKey;
+    private void drawGridLines(Graphics2D g2d) {
+        g2d.setColor(COLOR_GRID_LINE);
+        for (int midiNote = lowestNote; midiNote <= highestNote; midiNote++) {
+            // Draw a line at the start of every C key
+            if (midiNote % 12 == 0) {
+                PianoWindow.KeyInfo keyInfo = keyInfoProvider.apply(midiNote);
+                if (keyInfo != null && !keyInfo.isBlack()) {
+                    g2d.drawLine(keyInfo.x(), 0, keyInfo.x(), getHeight());
+                }
+            }
+        }
+    }
+
+    // --- Inner Classes ---
+
+    /**
+     * An inner class that cleanly encapsulates all logic and state for handling timeline dragging.
+     */
+    private class TimelineDragHandler extends MouseAdapter {
+        private boolean isDragging = false;
+        private int pressY = 0;
+        private long pressTime = 0;
+
+        @Override
+        public void mousePressed(MouseEvent e) {
+            isDragging = true;
+            pressY = e.getY();
+            pressTime = currentTimeMillis;
+            setCursor(Cursor.getPredefinedCursor(Cursor.N_RESIZE_CURSOR));
+            if (onDragStart != null) onDragStart.run();
+        }
+
+        @Override
+        public void mouseDragged(MouseEvent e) {
+            if (!isDragging) return;
+
+            int dy = e.getY() - pressY;
+            long timeDelta = (long) (dy / PIXELS_PER_MILLISECOND);
+            long newTime = pressTime - timeDelta;
+
+            // Clamp the new time within the valid range
+            newTime = Math.max(0, Math.min(newTime, totalDurationMillis));
+
+            updatePlaybackTime(newTime);
+            repaint();
+            if (onTimeChange != null) onTimeChange.accept(newTime);
+        }
+
+        @Override
+        public void mouseReleased(MouseEvent e) {
+            if (!isDragging) return;
+            isDragging = false;
+            setCursor(Cursor.getDefaultCursor());
+            if (onDragEnd != null) onDragEnd.run();
+        }
+    }
+
+    /**
+     * Represents a single falling note and handles its own drawing logic.
+     */
+    private class FallingNote {
+        private final int midiNote;
+        private final long noteOnTime;
+        private final long noteOffTime;
+        private final boolean isBlackKey;
 
         public FallingNote(int midiNote, long on, long off, boolean isBlackKey) {
             this.midiNote = midiNote;
@@ -156,49 +174,52 @@ public class AnimationPanel extends JPanel {
         }
 
         void draw(Graphics2D g, long currentMillis, int panelHeight) {
-            long noteDuration = noteOffTime - noteOnTime;
-            double pixelsPerMs = PIXELS_PER_MS;
-            int noteHeight = (int) (noteDuration * pixelsPerMs);
-
-            long fallStartTime = noteOnTime - FALL_DURATION_MS;
-
-            if (currentMillis < fallStartTime || currentMillis > noteOffTime) return;
+            long fallStartTime = noteOnTime - NOTE_FALL_DURATION_MS;
+            if (currentMillis < fallStartTime || currentMillis > noteOffTime) {
+                return; // Note is not visible yet or has finished
+            }
 
             PianoWindow.KeyInfo keyInfo = keyInfoProvider.apply(midiNote);
             if (keyInfo == null) return;
-            int x = keyInfo.x();
-            int width = keyInfo.width();
 
-            int bottomY;
-            if (currentMillis < noteOnTime) {
-                double progress = (double) (currentMillis - fallStartTime) / FALL_DURATION_MS;
-                progress = Math.min(Math.max(progress, 0), 1.0);
+            long noteDuration = noteOffTime - noteOnTime;
+            int noteHeight = (int) (noteDuration * PIXELS_PER_MILLISECOND);
 
-                int startY = -noteHeight;
-                int endY = panelHeight;
-                bottomY = (int) (startY + progress * (endY - startY));
-            } else {
-                double sinkProgress = (double) (currentMillis - noteOnTime) / noteDuration;
-                sinkProgress = Math.min(Math.max(sinkProgress, 0), 1.0);
-
-                int startY = panelHeight;
-                int endY = panelHeight + noteHeight;
-                bottomY = (int) (startY + sinkProgress * (endY - startY));
-            }
+            // The bottom of the note rectangle's position on the Y-axis
+            int bottomY = (currentMillis < noteOnTime)
+                    ? calculateFallingY(currentMillis, fallStartTime, noteHeight, panelHeight)
+                    : calculateSinkingY(currentMillis, noteHeight, panelHeight);
 
             int topY = bottomY - noteHeight;
-            if (topY < panelHeight) {
-                setNoteColor((Graphics2D) g);
-                g.fillRoundRect(x, topY, width, noteHeight, 10, 10);
+
+            // Only draw if the note is at all visible on the panel
+            if (topY < panelHeight && bottomY > 0) {
+                g.setColor(isBlackKey ? COLOR_BLACK_NOTE : COLOR_WHITE_NOTE);
+                g.fillRoundRect(keyInfo.x(), topY, keyInfo.width(), noteHeight, NOTE_CORNER_RADIUS, NOTE_CORNER_RADIUS);
             }
         }
 
-        private void setNoteColor(Graphics2D g) {
-            if (isBlackKey) {
-                g.setColor(new Color(255, 100, 100, 180));
-            } else {
-                g.setColor(new Color(255, 215, 0, 180));
-            }
+        /**
+         * Calculates the note's Y position as it falls towards the play line.
+         */
+        private int calculateFallingY(long currentMillis, long fallStartTime, int noteHeight, int panelHeight) {
+            double progress = (double) (currentMillis - fallStartTime) / NOTE_FALL_DURATION_MS;
+            int startY = -noteHeight; // Starts completely off-screen at the top
+            int endY = panelHeight;   // Ends at the play line
+            return (int) (startY + progress * (endY - startY));
+        }
+
+        /**
+         * Calculates the note's Y position as it "sinks" past the play line.
+         */
+        private int calculateSinkingY(long currentMillis, int noteHeight, int panelHeight) {
+            long noteDuration = noteOffTime - noteOnTime;
+            if (noteDuration <= 0) return panelHeight; // Avoid division by zero for very short notes
+
+            double progress = (double) (currentMillis - noteOnTime) / noteDuration;
+            int startY = panelHeight; // Starts at the play line
+            int endY = panelHeight + noteHeight; // Ends when it has fully sunk below the line
+            return (int) (startY + progress * (endY - startY));
         }
     }
 }
