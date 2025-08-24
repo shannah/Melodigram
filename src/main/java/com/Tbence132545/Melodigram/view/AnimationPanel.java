@@ -1,4 +1,3 @@
-// java
 package com.Tbence132545.Melodigram.view;
 
 import javax.swing.*;
@@ -10,6 +9,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 import java.util.function.LongConsumer;
+import java.util.stream.Collectors;
 
 public class AnimationPanel extends JPanel {
     public static class HandAssignment {
@@ -25,6 +25,7 @@ public class AnimationPanel extends JPanel {
             this.hand = hand;
         }
     }
+
     // --- Drawing & Animation Constants ---
     private static final double PIXELS_PER_MILLISECOND = 0.1;
     private static final long NOTE_FALL_DURATION_MS = 2000;
@@ -39,6 +40,7 @@ public class AnimationPanel extends JPanel {
 
     private static final Font NOTE_TEXT_FONT = new Font("SansSerif", Font.BOLD, 16);
     private static final Color NOTE_TEXT_COLOR = Color.WHITE;
+
     // --- State ---
     private final List<FallingNote> notes = new CopyOnWriteArrayList<>();
     private final Function<Integer, PianoWindow.KeyInfo> keyInfoProvider;
@@ -48,6 +50,7 @@ public class AnimationPanel extends JPanel {
     private final int highestNote;
     private boolean isHandAssignmentEnabled = false;
     private ListWindow.MidiFileActionListener.HandMode practiceFilterMode = ListWindow.MidiFileActionListener.HandMode.BOTH;
+
     // --- Callbacks for Controller ---
     private Runnable onDragStart;
     private LongConsumer onTimeChange;
@@ -60,36 +63,35 @@ public class AnimationPanel extends JPanel {
 
         setBackground(Color.BLACK);
 
-        // Encapsulated drag handler is much cleaner
         TimelineDragHandler dragHandler = new TimelineDragHandler();
         addMouseListener(dragHandler);
         addMouseMotionListener(dragHandler);
+
         NoteClickHandler clickHandler = new NoteClickHandler();
         addMouseListener(clickHandler);
     }
+
     public void setPracticeFilterMode(ListWindow.MidiFileActionListener.HandMode mode) {
         this.practiceFilterMode = mode;
-        repaint(); // Repaint to apply the visual filter immediately
+        repaint();
     }
 
     // --- Public API for Controller ---
     public List<HandAssignment> getAssignedNotes() {
-        List<HandAssignment> result = new ArrayList<>();
-        for (FallingNote n : notes) {
-            if (n.hand != null) {
-                result.add(new HandAssignment(
-                        n.midiNote,
-                        n.noteOnTime,
-                        n.noteOffTime,
-                        n.hand.name()
-                ));
-            }
-        }
-        return result;
+        return notes.stream()
+                .filter(note -> note.hand != null)
+                .map(note -> new HandAssignment(
+                        note.midiNote,
+                        note.noteOnTime,
+                        note.noteOffTime,
+                        note.hand.name()
+                ))
+                .collect(Collectors.toList());
     }
+
     public void applyHandAssignments(List<HandAssignment> assignments) {
         if (assignments == null || assignments.isEmpty()) return;
-        final long TOL_MS = 5; // small time tolerance to account for rounding
+        final long TOL_MS = 5;
 
         for (HandAssignment a : assignments) {
             for (FallingNote n : notes) {
@@ -106,6 +108,7 @@ public class AnimationPanel extends JPanel {
         }
         repaint();
     }
+
     public void setHandAssignmentMode(boolean enabled) {
         this.isHandAssignmentEnabled = enabled;
     }
@@ -136,43 +139,17 @@ public class AnimationPanel extends JPanel {
     }
 
     public List<Integer> getNotesStartingBetween(long startMs, long endMs) {
-        List<Integer> onsets = new ArrayList<>();
-        if (endMs < startMs) return onsets;
-        for (FallingNote note : notes) {
-            if (note.noteOnTime > startMs && note.noteOnTime <= endMs) {
-                onsets.add(note.midiNote);
-            }
-        }
-        return onsets;
+        return getNotesStartingBetween(startMs, endMs, ListWindow.MidiFileActionListener.HandMode.BOTH);
     }
+
     public List<Integer> getNotesStartingBetween(long startMs, long endMs, ListWindow.MidiFileActionListener.HandMode handMode) {
         List<Integer> onsets = new ArrayList<>();
         if (endMs < startMs) return onsets;
 
         for (FallingNote note : notes) {
-            if (note.noteOnTime > startMs && note.noteOnTime <= endMs) {
-                boolean shouldAdd = false;
-                switch (handMode) {
-                    case BOTH:
-                        // In BOTH mode, add the note if it's assigned to either hand OR unassigned.
-                        shouldAdd = true;
-                        break;
-                    case LEFT:
-                        // In LEFT mode, only add if explicitly assigned to the left hand.
-                        if (note.hand == FallingNote.Hands.LEFT) {
-                            shouldAdd = true;
-                        }
-                        break;
-                    case RIGHT:
-                        // In RIGHT mode, only add if explicitly assigned to the right hand.
-                        if (note.hand == FallingNote.Hands.RIGHT) {
-                            shouldAdd = true;
-                        }
-                        break;
-                }
-                if (shouldAdd) {
-                    onsets.add(note.midiNote);
-                }
+            boolean isWithinTime = note.noteOnTime > startMs && note.noteOnTime <= endMs;
+            if (isWithinTime && note.matchesHandFilter(handMode)) {
+                onsets.add(note.midiNote);
             }
         }
         return onsets;
@@ -196,8 +173,7 @@ public class AnimationPanel extends JPanel {
     private void drawGridLines(Graphics2D g2d) {
         g2d.setColor(COLOR_GRID_LINE);
         for (int midiNote = lowestNote; midiNote <= highestNote; midiNote++) {
-            // Draw a line at the start of every C key
-            if (midiNote % 12 == 0) {
+            if (midiNote % 12 == 0) { // Draw a line at the start of every C key
                 PianoWindow.KeyInfo keyInfo = keyInfoProvider.apply(midiNote);
                 if (keyInfo != null && !keyInfo.isBlack()) {
                     g2d.drawLine(keyInfo.x(), 0, keyInfo.x(), getHeight());
@@ -206,7 +182,6 @@ public class AnimationPanel extends JPanel {
         }
     }
 
-    // --- Inner Classes ---
     public Color getAssignedHighlightColor(int midiNote) {
         long t = getCurrentTimeMillis();
         for (int i = notes.size() - 1; i >= 0; i--) {
@@ -222,41 +197,33 @@ public class AnimationPanel extends JPanel {
     private Color colorForHighlight(FallingNote n) {
         boolean isLeft = (n.hand == FallingNote.Hands.LEFT);
         boolean isBlack = n.isBlackKey;
-        // Use the exact colors you use when drawing the falling notes
         return isLeft ? (isBlack ? COLOR_LEFT_BLACK : COLOR_LEFT_WHITE)
                 : (isBlack ? COLOR_RIGHT_BLACK : COLOR_RIGHT_WHITE);
     }
+
+    // --- Inner Classes ---
     private class NoteClickHandler extends MouseAdapter {
         @Override
         public void mousePressed(MouseEvent e) {
-            // Only process clicks if the mode is enabled
             if (!isHandAssignmentEnabled) {
                 return;
             }
 
-            // Iterate backwards to click the "top" note if they overlap
             for (int i = notes.size() - 1; i >= 0; i--) {
                 FallingNote note = notes.get(i);
                 if (note.getBounds().contains(e.getPoint())) {
-
                     if (SwingUtilities.isRightMouseButton(e)) {
                         note.setHand(FallingNote.Hands.RIGHT);
                     } else if (SwingUtilities.isLeftMouseButton(e)) {
-                        // In assignment mode, left click assigns left hand
                         note.setHand(FallingNote.Hands.LEFT);
                     }
-
-                    repaint(); // Redraw to show color change
-                    return; // Stop after handling one note
+                    repaint();
+                    return;
                 }
             }
         }
     }
 
-
-    /**
-     * An inner class that cleanly encapsulates all logic and state for handling timeline dragging.
-     */
     private class TimelineDragHandler extends MouseAdapter {
         private boolean isDragging = false;
         private int pressY = 0;
@@ -279,7 +246,6 @@ public class AnimationPanel extends JPanel {
             long timeDelta = (long) (dy / PIXELS_PER_MILLISECOND);
             long newTime = pressTime - timeDelta;
 
-            // Clamp the new time within the valid range
             newTime = Math.max(0, Math.min(newTime, totalDurationMillis));
 
             updatePlaybackTime(newTime);
@@ -296,10 +262,6 @@ public class AnimationPanel extends JPanel {
         }
     }
 
-    /**
-     * Represents a single falling note and handles its own drawing logic.
-     */
-
     private class FallingNote {
         private enum Hands {
             LEFT, RIGHT
@@ -310,93 +272,116 @@ public class AnimationPanel extends JPanel {
         private final boolean isBlackKey;
         private Hands hand = null;
         private final Rectangle bounds = new Rectangle();
+
         public FallingNote(int midiNote, long on, long off, boolean isBlackKey) {
             this.midiNote = midiNote;
             this.noteOnTime = on;
             this.noteOffTime = off;
             this.isBlackKey = isBlackKey;
         }
-        public void setHand(Hands hand) {
-            this.hand = hand;
+
+        public void setHand(Hands hand) { this.hand = hand; }
+        public Rectangle getBounds() { return this.bounds; }
+
+        public boolean matchesHandFilter(ListWindow.MidiFileActionListener.HandMode handMode) {
+            switch (handMode) {
+                case LEFT:  return this.hand == Hands.LEFT;
+                case RIGHT: return this.hand == Hands.RIGHT;
+                case BOTH:
+                default:    return true;
+            }
         }
-        public Rectangle getBounds() {
-            return this.bounds;
-        }
+
         void draw(Graphics2D g, long currentMillis, int panelHeight) {
-            if (practiceFilterMode == ListWindow.MidiFileActionListener.HandMode.LEFT && hand != Hands.LEFT) {
-                bounds.setBounds(0, 0, 0, 0); // Clear bounds to prevent accidental clicks
+            if (!shouldBeDrawnForPractice()) {
+                bounds.setBounds(0, 0, 0, 0);
                 return;
             }
-            if (practiceFilterMode == ListWindow.MidiFileActionListener.HandMode.RIGHT && hand != Hands.RIGHT) {
-                bounds.setBounds(0, 0, 0, 0); // Clear bounds
-                return;
-            }
-            long fallStartTime = noteOnTime - NOTE_FALL_DURATION_MS;
-            if (currentMillis < fallStartTime || currentMillis > noteOffTime) {
-                bounds.setBounds(0, 0, 0, 0); // Not visible, empty bounds
+
+            if (!isVisibleOnScreen(currentMillis)) {
+                bounds.setBounds(0, 0, 0, 0);
                 return;
             }
 
             PianoWindow.KeyInfo keyInfo = keyInfoProvider.apply(midiNote);
             if (keyInfo == null) return;
 
-            long noteDuration = noteOffTime - noteOnTime;
-            int noteHeight = (int) (noteDuration * PIXELS_PER_MILLISECOND);
-
-            int bottomY = (currentMillis < noteOnTime)
-                    ? calculateFallingY(currentMillis, fallStartTime, noteHeight, panelHeight)
-                    : calculateSinkingY(currentMillis, noteHeight, panelHeight);
-
-            int topY = bottomY - noteHeight;
-
+            int noteHeight = (int) ((noteOffTime - noteOnTime) * PIXELS_PER_MILLISECOND);
+            int topY = calculateTopY(currentMillis, noteHeight, panelHeight);
             bounds.setBounds(keyInfo.x(), topY, keyInfo.width(), noteHeight);
 
-            if (topY < panelHeight && bottomY > 0) {
-
-                if (hand == Hands.LEFT) {
-                    g.setColor(isBlackKey ? COLOR_LEFT_BLACK : COLOR_LEFT_WHITE);
-                } else if (hand == Hands.RIGHT) {
-                    g.setColor(isBlackKey ? COLOR_RIGHT_BLACK : COLOR_RIGHT_WHITE);
-                } else {
-                    g.setColor(isBlackKey ? COLOR_BLACK_NOTE : COLOR_WHITE_NOTE);
-                }
-
-
-                g.fillRoundRect(bounds.x, bounds.y, bounds.width, noteHeight, NOTE_CORNER_RADIUS, NOTE_CORNER_RADIUS);
-                if(hand!=null && isHandAssignmentEnabled){
-                    String text = (hand == Hands.LEFT) ? "L": "R";
-                    g.setFont(NOTE_TEXT_FONT);
-                    g.setColor(NOTE_TEXT_COLOR);
-                    FontMetrics fm = g.getFontMetrics();
-                    int textWidth = fm.stringWidth(text);
-                    int textHeight = fm.getAscent();
-                    int textX = bounds.x + (bounds.width - textWidth) / 2;
-                    int textY = bounds.y + (bounds.height + textHeight) / 2;
-                    g.drawString(text, textX, textY);
+            if (topY < panelHeight && (topY + noteHeight) > 0) {
+                drawNoteBody(g, noteHeight);
+                if (isHandAssignmentEnabled && hand != null) {
+                    drawHandText(g);
                 }
             }
         }
 
-        /**
-         * Calculates the note's Y position as it falls towards the play line.
-         */
+        private boolean shouldBeDrawnForPractice() {
+            if (practiceFilterMode == ListWindow.MidiFileActionListener.HandMode.LEFT && hand != Hands.LEFT) {
+                return false;
+            }
+            if (practiceFilterMode == ListWindow.MidiFileActionListener.HandMode.RIGHT && hand != Hands.RIGHT) {
+                return false;
+            }
+            return true;
+        }
+
+        private boolean isVisibleOnScreen(long currentMillis) {
+            long fallStartTime = noteOnTime - NOTE_FALL_DURATION_MS;
+            return currentMillis >= fallStartTime && currentMillis <= noteOffTime;
+        }
+
+        private int calculateTopY(long currentMillis, int noteHeight, int panelHeight) {
+            long fallStartTime = noteOnTime - NOTE_FALL_DURATION_MS;
+            int bottomY = (currentMillis < noteOnTime)
+                    ? calculateFallingY(currentMillis, fallStartTime, noteHeight, panelHeight)
+                    : calculateSinkingY(currentMillis, noteHeight, panelHeight);
+            return bottomY - noteHeight;
+        }
+
+        private Color determineNoteColor() {
+            if (hand == Hands.LEFT) {
+                return isBlackKey ? COLOR_LEFT_BLACK : COLOR_LEFT_WHITE;
+            } else if (hand == Hands.RIGHT) {
+                return isBlackKey ? COLOR_RIGHT_BLACK : COLOR_RIGHT_WHITE;
+            } else {
+                return isBlackKey ? COLOR_BLACK_NOTE : COLOR_WHITE_NOTE;
+            }
+        }
+
+        private void drawNoteBody(Graphics2D g, int noteHeight) {
+            g.setColor(determineNoteColor());
+            g.fillRoundRect(bounds.x, bounds.y, bounds.width, noteHeight, NOTE_CORNER_RADIUS, NOTE_CORNER_RADIUS);
+        }
+
+        private void drawHandText(Graphics2D g) {
+            String text = (hand == Hands.LEFT) ? "L" : "R";
+            g.setFont(NOTE_TEXT_FONT);
+            g.setColor(NOTE_TEXT_COLOR);
+            FontMetrics fm = g.getFontMetrics();
+            int textWidth = fm.stringWidth(text);
+            int textHeight = fm.getAscent();
+            int textX = bounds.x + (bounds.width - textWidth) / 2;
+            int textY = bounds.y + (bounds.height + textHeight) / 2;
+            g.drawString(text, textX, textY);
+        }
+
         private int calculateFallingY(long currentMillis, long fallStartTime, int noteHeight, int panelHeight) {
             double progress = (double) (currentMillis - fallStartTime) / NOTE_FALL_DURATION_MS;
-            int startY = -noteHeight; // Starts completely off-screen at the top
-            int endY = panelHeight;   // Ends at the play line
+            int startY = -noteHeight;
+            int endY = panelHeight;
             return (int) (startY + progress * (endY - startY));
         }
 
-        /**
-         * Calculates the note's Y position as it "sinks" past the play line.
-         */
         private int calculateSinkingY(long currentMillis, int noteHeight, int panelHeight) {
             long noteDuration = noteOffTime - noteOnTime;
-            if (noteDuration <= 0) return panelHeight; // Avoid division by zero for very short notes
+            if (noteDuration <= 0) return panelHeight;
 
             double progress = (double) (currentMillis - noteOnTime) / noteDuration;
-            int startY = panelHeight; // Starts at the play line
-            int endY = panelHeight + noteHeight; // Ends when it has fully sunk below the line
+            int startY = panelHeight;
+            int endY = panelHeight + noteHeight;
             return (int) (startY + progress * (endY - startY));
         }
     }
