@@ -1,18 +1,20 @@
 package com.Tbence132545.Melodigram.view;
 
+import com.Tbence132545.Melodigram.controller.PlaybackController;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
 
 public class ListWindow extends JFrame {
+
     public interface MidiFileActionListener {
-        enum HandMode {
-            LEFT, RIGHT, BOTH
-        }
+        enum HandMode { LEFT, RIGHT, BOTH }
         void onWatchAndListenClicked(String midiFilename);
         void onPracticeClicked(String midiFilename, HandMode mode);
         void onAssignHandsClicked(String midiFilename);
     }
+
     private final JPanel contentPanel;
     private JButton backButton;
     private JButton importButton;
@@ -22,13 +24,12 @@ public class ListWindow extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setExtendedState(JFrame.MAXIMIZED_BOTH);
 
-        // === Main container panel ===
-        JPanel mainPanel = new JPanel();
-        mainPanel.setLayout(new BorderLayout(20, 20));
+        // Main container
+        JPanel mainPanel = new JPanel(new BorderLayout(20, 20));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
         mainPanel.setBackground(Color.BLACK);
 
-        // --- Top panel ---
+        // Top panel
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.setBackground(Color.BLACK);
 
@@ -43,14 +44,12 @@ public class ListWindow extends JFrame {
 
         importButton = createModernButton("Import MIDI");
         backButton = createModernButton("<- Back to Main Menu");
-
         buttonPanel.add(importButton);
         buttonPanel.add(backButton);
-
         topPanel.add(buttonPanel, BorderLayout.EAST);
         mainPanel.add(topPanel, BorderLayout.NORTH);
 
-        // === Scrollable content ===
+        // Scrollable content
         contentPanel = new JPanel();
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
         contentPanel.setBackground(Color.BLACK);
@@ -69,12 +68,9 @@ public class ListWindow extends JFrame {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                Color baseColor = new Color(200, 60, 60);  // red
-                Color hoverColor = new Color(170, 40, 40); // darker red
-                Color currentColor = getModel().isRollover() ? hoverColor : baseColor;
-
-                g2.setColor(currentColor);
+                Color baseColor = new Color(200, 60, 60);
+                Color hoverColor = new Color(170, 40, 40);
+                g2.setColor(getModel().isRollover() ? hoverColor : baseColor);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
 
                 g2.setColor(Color.WHITE);
@@ -82,7 +78,6 @@ public class ListWindow extends JFrame {
                 int textX = (getWidth() - fm.stringWidth(getText())) / 2;
                 int textY = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
                 g2.drawString(getText(), textX, textY);
-
                 g2.dispose();
             }
         };
@@ -120,17 +115,11 @@ public class ListWindow extends JFrame {
         contentPanel.repaint();
     }
 
-    // Collapsible Panel with theme
-    // java
-// In com.Tbence132545.Melodigram.view.ListWindow
-// REPLACE the entire CollapsiblePanel class with this new one
-
     private static class CollapsiblePanel extends JPanel {
         private final JButton titleButton;
-        private final JPanel cardsPanel; // This will hold our different views
+        private final JPanel cardsPanel;
         private final CardLayout cardLayout;
 
-        // Panel identifiers for CardLayout
         private static final String MAIN_ACTIONS = "MAIN_ACTIONS";
         private static final String PRACTICE_OPTIONS = "PRACTICE_OPTIONS";
 
@@ -139,9 +128,8 @@ public class ListWindow extends JFrame {
             setAlignmentX(Component.LEFT_ALIGNMENT);
             setBackground(Color.BLACK);
 
-            // --- Title Button (no changes here) ---
+            // Title button
             titleButton = new JButton(title);
-            // ... (all the existing titleButton styling is correct)
             titleButton.setHorizontalAlignment(SwingConstants.LEFT);
             titleButton.setFont(new Font("Segoe UI", Font.BOLD, 16));
             titleButton.setFocusPainted(false);
@@ -151,101 +139,85 @@ public class ListWindow extends JFrame {
             titleButton.setForeground(Color.WHITE);
             titleButton.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
             titleButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
             titleButton.addMouseListener(new java.awt.event.MouseAdapter() {
                 @Override
-                public void mouseEntered(java.awt.event.MouseEvent evt) {
-                    titleButton.setBackground(new Color(200, 60, 60));
-                }
+                public void mouseEntered(java.awt.event.MouseEvent evt) { titleButton.setBackground(new Color(200, 60, 60)); }
                 @Override
-                public void mouseExited(java.awt.event.MouseEvent evt) {
-                    titleButton.setBackground(new Color(40, 40, 40));
-                }
+                public void mouseExited(java.awt.event.MouseEvent evt) { titleButton.setBackground(new Color(40, 40, 40)); }
             });
 
-            // --- CardLayout Panel Setup ---
+            // Card layout panel
             cardLayout = new CardLayout();
             cardsPanel = new JPanel(cardLayout);
             cardsPanel.setOpaque(false);
+            cardsPanel.setVisible(false); // start collapsed
 
-            // --- Card 1: Main Action Buttons ---
+            // Main actions
             JPanel mainActionsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
             mainActionsPanel.setOpaque(false);
 
-            JButton listenButton = createModernButton("Listen and watch");
-            listenButton.addActionListener(e -> listener.onWatchAndListenClicked("midi/" + title));
-
-            JButton practiceButton = createModernButton("Practice");
-            practiceButton.addActionListener(e -> {
-                cardLayout.show(cardsPanel, PRACTICE_OPTIONS);
-                updatePanelHeight(); // Resize the panel to fit the new buttons
-            });
-
-            JButton assignHandsButton = createModernButton("Assign Hands");
-            assignHandsButton.addActionListener(e -> listener.onAssignHandsClicked("midi/" + title));
+            JButton listenButton = createCardButton("Listen and watch", e -> listener.onWatchAndListenClicked("midi/" + title));
+            JButton practiceButton = createCardButton("Practice", null); // listener added below
+            JButton assignHandsButton = createCardButton("Assign Hands", e -> listener.onAssignHandsClicked("midi/" + title));
 
             mainActionsPanel.add(listenButton);
             mainActionsPanel.add(practiceButton);
             mainActionsPanel.add(assignHandsButton);
 
-            // --- Card 2: Practice Option Buttons ---
+            // Practice options (lazy)
             JPanel practiceOptionsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
             practiceOptionsPanel.setOpaque(false);
 
-            JButton practiceLeftButton = createModernButton("Just Left Hand");
-            practiceLeftButton.addActionListener(e -> listener.onPracticeClicked(title, MidiFileActionListener.HandMode.LEFT));
+            practiceButton.addActionListener(e -> {
+                // check for assignments lazily
+                boolean hasAssignments = PlaybackController.assignmentFileExistsFor(title);
+                if (hasAssignments) {
+                    JButton left = createCardButton("Just Left Hand", ev -> listener.onPracticeClicked(title, MidiFileActionListener.HandMode.LEFT));
+                    JButton right = createCardButton("Just Right Hand", ev -> listener.onPracticeClicked(title, MidiFileActionListener.HandMode.RIGHT));
+                    JButton both = createCardButton("Both Hands", ev -> listener.onPracticeClicked(title, MidiFileActionListener.HandMode.BOTH));
+                    JButton back = createCardButton("<- Back", ev -> {
+                        cardLayout.show(cardsPanel, MAIN_ACTIONS);
+                        updatePanelHeight();
+                    });
+                    practiceOptionsPanel.removeAll();
+                    practiceOptionsPanel.add(left);
+                    practiceOptionsPanel.add(right);
+                    practiceOptionsPanel.add(both);
+                    practiceOptionsPanel.add(back);
 
-            JButton practiceRightButton = createModernButton("Just Right Hand");
-            practiceRightButton.addActionListener(e -> listener.onPracticeClicked(title, MidiFileActionListener.HandMode.RIGHT));
-
-            JButton practiceBothButton = createModernButton("Both Hands");
-            practiceBothButton.addActionListener(e -> listener.onPracticeClicked( title, MidiFileActionListener.HandMode.BOTH));
-
-            JButton backButton = createModernButton("<- Back");
-            backButton.addActionListener(e -> {
-                cardLayout.show(cardsPanel, MAIN_ACTIONS);
-                updatePanelHeight(); // Resize the panel back
+                    cardsPanel.add(practiceOptionsPanel, PRACTICE_OPTIONS);
+                    cardLayout.show(cardsPanel, PRACTICE_OPTIONS);
+                } else {
+                    listener.onPracticeClicked(title, MidiFileActionListener.HandMode.BOTH);
+                }
+                updatePanelHeight();
             });
 
-            practiceOptionsPanel.add(practiceLeftButton);
-            practiceOptionsPanel.add(practiceRightButton);
-            practiceOptionsPanel.add(practiceBothButton);
-            practiceOptionsPanel.add(backButton);
-
-            // --- Final Assembly ---
+            // Add cards
             cardsPanel.add(mainActionsPanel, MAIN_ACTIONS);
-            cardsPanel.add(practiceOptionsPanel, PRACTICE_OPTIONS);
-            cardsPanel.setVisible(false);
 
+            // Toggle collapse
             titleButton.addActionListener(e -> toggleVisibility());
+
             add(titleButton, BorderLayout.NORTH);
             add(cardsPanel, BorderLayout.CENTER);
             updatePanelHeight();
         }
 
-        private JButton createModernButton(String text) {
-            // This helper method is perfect, no changes needed here.
+        private JButton createCardButton(String text, ActionListener listener) {
             JButton button = new JButton(text);
             button.setFocusPainted(false);
             button.setContentAreaFilled(false);
             button.setOpaque(true);
-            Color baseColor = new Color(180, 40, 40);
-            Color hoverColor = new Color(220, 60, 60);
-            button.setBackground(baseColor);
+            button.setBackground(new Color(180, 40, 40));
             button.setForeground(Color.WHITE);
             button.setFont(new Font("Segoe UI", Font.PLAIN, 14));
             button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            button.setAlignmentY(Component.CENTER_ALIGNMENT);
             button.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+            if (listener != null) button.addActionListener(listener);
             button.addMouseListener(new java.awt.event.MouseAdapter() {
-                @Override
-                public void mouseEntered(java.awt.event.MouseEvent evt) {
-                    button.setBackground(hoverColor);
-                }
-                @Override
-                public void mouseExited(java.awt.event.MouseEvent evt) {
-                    button.setBackground(baseColor);
-                }
+                @Override public void mouseEntered(java.awt.event.MouseEvent evt) { button.setBackground(new Color(220, 60, 60)); }
+                @Override public void mouseExited(java.awt.event.MouseEvent evt) { button.setBackground(new Color(180, 40, 40)); }
             });
             return button;
         }
@@ -258,20 +230,10 @@ public class ListWindow extends JFrame {
         }
 
         private void updatePanelHeight() {
-            // This now needs to calculate height based on the currently visible card
-            JPanel visiblePanel = null;
-            for (Component comp : cardsPanel.getComponents()) {
-                if (comp.isVisible()) {
-                    visiblePanel = (JPanel) comp;
-                    break;
-                }
-            }
-
             int contentHeight = 0;
-            if (cardsPanel.isVisible() && visiblePanel != null) {
-                contentHeight = visiblePanel.getPreferredSize().height;
+            for (Component comp : cardsPanel.getComponents()) {
+                if (comp.isVisible()) contentHeight = comp.getPreferredSize().height;
             }
-
             int height = titleButton.getPreferredSize().height + contentHeight;
             setMaximumSize(new Dimension(Integer.MAX_VALUE, height));
         }

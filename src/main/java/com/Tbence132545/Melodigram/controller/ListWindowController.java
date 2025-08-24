@@ -61,14 +61,12 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
 
     @Override
     public void onAssignHandsClicked(String midiFilename) {
-        // This is where we launch the PianoWindow in editing mode
-        // The logic is very similar to onWatchAndListenClicked
+        //Launch pianoWindow in editing mode
         String simpleFilename = midiFilename.replace("midi/", "");
         openPianoWindowForEditing(simpleFilename);
     }
     @Override
     public void onWatchAndListenClicked(String midiFilename) {
-        // Restore the crucial logic to handle the inconsistent path from the view
         String simpleFilename = midiFilename.replace("midi/", "");
         openPianoWindow(simpleFilename, false, null);
     }
@@ -90,8 +88,6 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
                 PianoWindow pianoWindow = new PianoWindow(range[0], range[1]);
                 PlaybackController playbackController = new PlaybackController(midiData.player(), pianoWindow);
 
-                // *** THE KEY STEP ***
-                // Put the application into hand assignment mode
                 playbackController.setEditingMode(true);
 
                 pianoWindow.setBackButtonListener(e -> {
@@ -113,7 +109,7 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
         SwingUtilities.invokeLater(() -> {
             MidiDevice inputDevice = null;
             try {
-                // Load MIDI data using the service - NO MORE DUPLICATION
+                // Load MIDI data using the service
                 MidiFileService.MidiData midiData = midiFileService.loadMidiData(midiFileName);
 
                 int[] range = MidiPlayer.extractNoteRange(midiData.sequence());

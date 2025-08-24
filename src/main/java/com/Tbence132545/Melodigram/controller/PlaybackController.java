@@ -1,5 +1,6 @@
 package com.Tbence132545.Melodigram.controller;
 
+import com.Tbence132545.Melodigram.model.MidiFileService;
 import com.Tbence132545.Melodigram.model.MidiPlayer;
 import com.Tbence132545.Melodigram.view.AnimationPanel;
 import com.Tbence132545.Melodigram.view.ListWindow;
@@ -307,7 +308,7 @@ public class PlaybackController {
         saveAssignments();
     }
 
-    // --- Private MIDI Callbacks and Helpers ---
+    //Private MIDI callbacks and helpers
     private static String computeSequenceHash(Sequence sequence) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-1");
@@ -343,7 +344,6 @@ public class PlaybackController {
         return ASSIGNMENTS_DIR.resolve(hash + ".json");
     }
 
-    // --- REPLACED WITH GSON ---
     private void saveAssignments() {
         List<AnimationPanel.HandAssignment> items = animationPanel.getAssignedNotes();
         if (items.isEmpty()) {
@@ -382,13 +382,22 @@ public class PlaybackController {
             HandAssignmentFile data = gson.fromJson(content, HandAssignmentFile.class);
 
             if (data != null && data.assignments != null) {
-                // We could optionally verify the hash here:
-                // String currentHash = computeSequenceHash(sequence);
-                // if (currentHash.equals(data.midiHash)) { ... }
                 animationPanel.applyHandAssignments(data.assignments);
             }
         } catch (IOException e) {
-            e.printStackTrace(); // Non-fatal, just log
+            e.printStackTrace();
+        }
+    }
+    public static boolean assignmentFileExistsFor(String midiFileName) {
+        try {
+            MidiFileService service = new MidiFileService();
+            MidiFileService.MidiData midiData = service.loadMidiData(midiFileName);
+            String hash = computeSequenceHash(midiData.sequence());
+            Path path = ASSIGNMENTS_DIR.resolve(hash + ".json");
+            return Files.exists(path);
+        } catch (Exception e) {
+            e.printStackTrace(); // log for debugging
+            return false;
         }
     }
 
@@ -447,6 +456,7 @@ public class PlaybackController {
         }
         loadAssignmentsIfPresent(sequence);
     }
+
 
     //   Inner Class for MIDI Receiver
     private class MidiInputReceiver implements Receiver {
