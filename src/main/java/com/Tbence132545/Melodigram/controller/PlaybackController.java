@@ -3,6 +3,7 @@ package com.Tbence132545.Melodigram.controller;
 
 import com.Tbence132545.Melodigram.model.MidiPlayer;
 import com.Tbence132545.Melodigram.view.AnimationPanel;
+import com.Tbence132545.Melodigram.view.ListWindow;
 import com.Tbence132545.Melodigram.view.PianoWindow;
 import com.Tbence132545.Melodigram.view.SeekBar;
 
@@ -44,7 +45,7 @@ public class PlaybackController {
     private boolean isPracticeMode = false;
     private boolean isEditingMode= false;
     private boolean wasPlayingBeforeDrag = false;
-
+    private ListWindow.MidiFileActionListener.HandMode practiceHandMode = ListWindow.MidiFileActionListener.HandMode.BOTH;
     //   MIDI Input and Practice Mode State  
     private MidiDevice midiInputDevice;
     private final List<Integer> currentlyPressedNotes = new ArrayList<>();
@@ -176,7 +177,11 @@ public class PlaybackController {
         animationPanel.tick(delta);
         long nextTime = animationPanel.getCurrentTimeMillis();
 
-        List<Integer> onsets = animationPanel.getNotesStartingBetween((prevTime == 0) ? -1 : prevTime, nextTime);
+        List<Integer> onsets = animationPanel.getNotesStartingBetween(
+                (prevTime == 0) ? -1 : prevTime,
+                nextTime,
+                this.practiceHandMode // Pass the stored hand mode
+        );
 
         if (!onsets.isEmpty()) {
             awaitedNotes.clear();
@@ -289,14 +294,25 @@ public class PlaybackController {
             pianoWindow.repaint();
         }
     }
-    public void setPracticeMode(boolean enabled) {
+    public void setPracticeMode(boolean enabled, ListWindow.MidiFileActionListener.HandMode mode) {
         this.isPracticeMode = enabled;
+        this.practiceHandMode = mode; // Store the selected mode
+
+        // Pass the filter mode to the animation panel so it can hide notes
+        animationPanel.setPracticeFilterMode(mode);
+
         pianoWindow.disableButtons(enabled);
         if (enabled) {
             midiPlayer.stop();
             resetPracticeState();
         }
     }
+
+    // Add an overload for the old calls to not break anything
+    public void setPracticeMode(boolean enabled) {
+        setPracticeMode(enabled, ListWindow.MidiFileActionListener.HandMode.BOTH);
+    }
+
 
     public void setMidiInputDevice(MidiDevice device) {
         try {

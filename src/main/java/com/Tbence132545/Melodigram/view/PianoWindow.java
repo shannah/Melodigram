@@ -362,8 +362,6 @@ public class PianoWindow extends JFrame {
         return keyButton;
     }
 
-    // java
-// Replace the entire setKeyColor method in com.Tbence132545.Melodigram.view.PianoWindow
 
     private void setKeyColor(int midiNote, boolean isHighlighted) {
         JButton key = noteToKeyButton.get(midiNote);
@@ -371,21 +369,20 @@ public class PianoWindow extends JFrame {
 
         KeyType keyType = KeyType.fromMidiNote(midiNote);
         if (isHighlighted) {
-            // --- THIS IS THE CORRECTED LOGIC ---
 
-            // 1. Ask the animation panel for the specific hand-assigned color.
+            //Ask the animation panel for the specific hand-assigned color.
             Color assignedColor = animationPanel.getAssignedHighlightColor(midiNote);
 
             if (assignedColor != null) {
-                // 2. If we found one, use it!
+                //If we found one, use it
                 key.setBackground(assignedColor);
             } else {
-                // 3. Otherwise, use the default highlight color as a fallback.
+                //Otherwise, use the default highlight color as a fallback.
                 key.setBackground(keyType == KeyType.WHITE ? COLOR_WHITE_KEY_HIGHLIGHT : COLOR_BLACK_KEY_HIGHLIGHT);
             }
 
         } else {
-            // This part is for releasing the key, it's correct.
+            // This part is for releasing the key
             key.setBackground(keyType == KeyType.WHITE ? Color.WHITE : Color.BLACK);
         }
         key.repaint();

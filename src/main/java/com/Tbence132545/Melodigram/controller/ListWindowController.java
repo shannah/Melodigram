@@ -70,14 +70,14 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
     public void onWatchAndListenClicked(String midiFilename) {
         // Restore the crucial logic to handle the inconsistent path from the view
         String simpleFilename = midiFilename.replace("midi/", "");
-        openPianoWindow(simpleFilename, false);
+        openPianoWindow(simpleFilename, false, null);
     }
 
     @Override
-    public void onPracticeClicked(String midiFilename) {
+    public void onPracticeClicked(String midiFilename, HandMode mode) {
         MidiInputSelector selector = new MidiInputSelector(view, deviceInfo -> {
             if (deviceInfo != null) {
-                openPianoWindow(midiFilename, true, deviceInfo);
+                openPianoWindow(midiFilename, true, mode, deviceInfo);
             }
         });
         selector.setVisible(true);
@@ -109,7 +109,7 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
             }
         });
     }
-    private void openPianoWindow(String midiFileName, boolean isPractice, MidiDevice.Info... midiDeviceInfo) {
+    private void openPianoWindow(String midiFileName, boolean isPractice, HandMode hand, MidiDevice.Info... midiDeviceInfo) {
         SwingUtilities.invokeLater(() -> {
             MidiDevice inputDevice = null;
             try {
@@ -123,7 +123,7 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
                 if (isPractice) {
                     if (midiDeviceInfo.length == 0) throw new IllegalStateException("MIDI device info required for practice mode.");
                     inputDevice = MidiSystem.getMidiDevice(midiDeviceInfo[0]);
-                    playbackController.setPracticeMode(true);
+                    playbackController.setPracticeMode(true, hand);
                     playbackController.setMidiInputDevice(inputDevice);
                 }
 

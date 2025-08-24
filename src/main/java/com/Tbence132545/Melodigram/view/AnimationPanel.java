@@ -47,7 +47,7 @@ public class AnimationPanel extends JPanel {
     private final int lowestNote;
     private final int highestNote;
     private boolean isHandAssignmentEnabled = false;
-
+    private ListWindow.MidiFileActionListener.HandMode practiceFilterMode = ListWindow.MidiFileActionListener.HandMode.BOTH;
     // --- Callbacks for Controller ---
     private Runnable onDragStart;
     private LongConsumer onTimeChange;
@@ -66,6 +66,10 @@ public class AnimationPanel extends JPanel {
         addMouseMotionListener(dragHandler);
         NoteClickHandler clickHandler = new NoteClickHandler();
         addMouseListener(clickHandler);
+    }
+    public void setPracticeFilterMode(ListWindow.MidiFileActionListener.HandMode mode) {
+        this.practiceFilterMode = mode;
+        repaint(); // Repaint to apply the visual filter immediately
     }
 
     // --- Public API for Controller ---
@@ -137,6 +141,38 @@ public class AnimationPanel extends JPanel {
         for (FallingNote note : notes) {
             if (note.noteOnTime > startMs && note.noteOnTime <= endMs) {
                 onsets.add(note.midiNote);
+            }
+        }
+        return onsets;
+    }
+    public List<Integer> getNotesStartingBetween(long startMs, long endMs, ListWindow.MidiFileActionListener.HandMode handMode) {
+        List<Integer> onsets = new ArrayList<>();
+        if (endMs < startMs) return onsets;
+
+        for (FallingNote note : notes) {
+            if (note.noteOnTime > startMs && note.noteOnTime <= endMs) {
+                boolean shouldAdd = false;
+                switch (handMode) {
+                    case BOTH:
+                        // In BOTH mode, add the note if it's assigned to either hand OR unassigned.
+                        shouldAdd = true;
+                        break;
+                    case LEFT:
+                        // In LEFT mode, only add if explicitly assigned to the left hand.
+                        if (note.hand == FallingNote.Hands.LEFT) {
+                            shouldAdd = true;
+                        }
+                        break;
+                    case RIGHT:
+                        // In RIGHT mode, only add if explicitly assigned to the right hand.
+                        if (note.hand == FallingNote.Hands.RIGHT) {
+                            shouldAdd = true;
+                        }
+                        break;
+                }
+                if (shouldAdd) {
+                    onsets.add(note.midiNote);
+                }
             }
         }
         return onsets;
@@ -287,6 +323,14 @@ public class AnimationPanel extends JPanel {
             return this.bounds;
         }
         void draw(Graphics2D g, long currentMillis, int panelHeight) {
+            if (practiceFilterMode == ListWindow.MidiFileActionListener.HandMode.LEFT && hand != Hands.LEFT) {
+                bounds.setBounds(0, 0, 0, 0); // Clear bounds to prevent accidental clicks
+                return;
+            }
+            if (practiceFilterMode == ListWindow.MidiFileActionListener.HandMode.RIGHT && hand != Hands.RIGHT) {
+                bounds.setBounds(0, 0, 0, 0); // Clear bounds
+                return;
+            }
             long fallStartTime = noteOnTime - NOTE_FALL_DURATION_MS;
             if (currentMillis < fallStartTime || currentMillis > noteOffTime) {
                 bounds.setBounds(0, 0, 0, 0); // Not visible, empty bounds

@@ -6,8 +6,11 @@ import java.awt.event.ActionListener;
 
 public class ListWindow extends JFrame {
     public interface MidiFileActionListener {
+        enum HandMode {
+            LEFT, RIGHT, BOTH
+        }
         void onWatchAndListenClicked(String midiFilename);
-        void onPracticeClicked(String midiFilename);
+        void onPracticeClicked(String midiFilename, HandMode mode);
         void onAssignHandsClicked(String midiFilename);
     }
     private final JPanel contentPanel;
@@ -118,16 +121,27 @@ public class ListWindow extends JFrame {
     }
 
     // Collapsible Panel with theme
+    // java
+// In com.Tbence132545.Melodigram.view.ListWindow
+// REPLACE the entire CollapsiblePanel class with this new one
+
     private static class CollapsiblePanel extends JPanel {
         private final JButton titleButton;
-        private final JPanel contentPanel;
+        private final JPanel cardsPanel; // This will hold our different views
+        private final CardLayout cardLayout;
+
+        // Panel identifiers for CardLayout
+        private static final String MAIN_ACTIONS = "MAIN_ACTIONS";
+        private static final String PRACTICE_OPTIONS = "PRACTICE_OPTIONS";
 
         public CollapsiblePanel(String title, MidiFileActionListener listener) {
             super(new BorderLayout());
             setAlignmentX(Component.LEFT_ALIGNMENT);
             setBackground(Color.BLACK);
 
+            // --- Title Button (no changes here) ---
             titleButton = new JButton(title);
+            // ... (all the existing titleButton styling is correct)
             titleButton.setHorizontalAlignment(SwingConstants.LEFT);
             titleButton.setFont(new Font("Segoe UI", Font.BOLD, 16));
             titleButton.setFocusPainted(false);
@@ -141,7 +155,7 @@ public class ListWindow extends JFrame {
             titleButton.addMouseListener(new java.awt.event.MouseAdapter() {
                 @Override
                 public void mouseEntered(java.awt.event.MouseEvent evt) {
-                    titleButton.setBackground(new Color(200, 60, 60)); // red hover
+                    titleButton.setBackground(new Color(200, 60, 60));
                 }
                 @Override
                 public void mouseExited(java.awt.event.MouseEvent evt) {
@@ -149,46 +163,80 @@ public class ListWindow extends JFrame {
                 }
             });
 
-            contentPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
-            contentPanel.setOpaque(false);
+            // --- CardLayout Panel Setup ---
+            cardLayout = new CardLayout();
+            cardsPanel = new JPanel(cardLayout);
+            cardsPanel.setOpaque(false);
+
+            // --- Card 1: Main Action Buttons ---
+            JPanel mainActionsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+            mainActionsPanel.setOpaque(false);
 
             JButton listenButton = createModernButton("Listen and watch");
             listenButton.addActionListener(e -> listener.onWatchAndListenClicked("midi/" + title));
 
             JButton practiceButton = createModernButton("Practice");
-            practiceButton.addActionListener(e -> listener.onPracticeClicked(title));
+            practiceButton.addActionListener(e -> {
+                cardLayout.show(cardsPanel, PRACTICE_OPTIONS);
+                updatePanelHeight(); // Resize the panel to fit the new buttons
+            });
 
             JButton assignHandsButton = createModernButton("Assign Hands");
-            assignHandsButton.addActionListener(e -> listener.onAssignHandsClicked(title));
-            contentPanel.add(listenButton);
-            contentPanel.add(practiceButton);
-            contentPanel.add(assignHandsButton);
-            contentPanel.setVisible(false);
+            assignHandsButton.addActionListener(e -> listener.onAssignHandsClicked("midi/" + title));
+
+            mainActionsPanel.add(listenButton);
+            mainActionsPanel.add(practiceButton);
+            mainActionsPanel.add(assignHandsButton);
+
+            // --- Card 2: Practice Option Buttons ---
+            JPanel practiceOptionsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+            practiceOptionsPanel.setOpaque(false);
+
+            JButton practiceLeftButton = createModernButton("Just Left Hand");
+            practiceLeftButton.addActionListener(e -> listener.onPracticeClicked(title, MidiFileActionListener.HandMode.LEFT));
+
+            JButton practiceRightButton = createModernButton("Just Right Hand");
+            practiceRightButton.addActionListener(e -> listener.onPracticeClicked(title, MidiFileActionListener.HandMode.RIGHT));
+
+            JButton practiceBothButton = createModernButton("Both Hands");
+            practiceBothButton.addActionListener(e -> listener.onPracticeClicked( title, MidiFileActionListener.HandMode.BOTH));
+
+            JButton backButton = createModernButton("<- Back");
+            backButton.addActionListener(e -> {
+                cardLayout.show(cardsPanel, MAIN_ACTIONS);
+                updatePanelHeight(); // Resize the panel back
+            });
+
+            practiceOptionsPanel.add(practiceLeftButton);
+            practiceOptionsPanel.add(practiceRightButton);
+            practiceOptionsPanel.add(practiceBothButton);
+            practiceOptionsPanel.add(backButton);
+
+            // --- Final Assembly ---
+            cardsPanel.add(mainActionsPanel, MAIN_ACTIONS);
+            cardsPanel.add(practiceOptionsPanel, PRACTICE_OPTIONS);
+            cardsPanel.setVisible(false);
 
             titleButton.addActionListener(e -> toggleVisibility());
             add(titleButton, BorderLayout.NORTH);
-            add(contentPanel, BorderLayout.CENTER);
+            add(cardsPanel, BorderLayout.CENTER);
             updatePanelHeight();
         }
 
         private JButton createModernButton(String text) {
+            // This helper method is perfect, no changes needed here.
             JButton button = new JButton(text);
             button.setFocusPainted(false);
             button.setContentAreaFilled(false);
             button.setOpaque(true);
-
-            // 🔹 Secondary button shade
-            Color baseColor = new Color(180, 40, 40);   // muted red
-            Color hoverColor = new Color(220, 60, 60);  // brighter on hover
-
+            Color baseColor = new Color(180, 40, 40);
+            Color hoverColor = new Color(220, 60, 60);
             button.setBackground(baseColor);
             button.setForeground(Color.WHITE);
             button.setFont(new Font("Segoe UI", Font.PLAIN, 14));
             button.setCursor(new Cursor(Cursor.HAND_CURSOR));
             button.setAlignmentY(Component.CENTER_ALIGNMENT);
             button.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
-
-            // Hover effect
             button.addMouseListener(new java.awt.event.MouseAdapter() {
                 @Override
                 public void mouseEntered(java.awt.event.MouseEvent evt) {
@@ -199,20 +247,32 @@ public class ListWindow extends JFrame {
                     button.setBackground(baseColor);
                 }
             });
-
             return button;
         }
 
         private void toggleVisibility() {
-            contentPanel.setVisible(!contentPanel.isVisible());
+            cardsPanel.setVisible(!cardsPanel.isVisible());
             updatePanelHeight();
             revalidate();
             repaint();
         }
 
         private void updatePanelHeight() {
-            int height = titleButton.getPreferredSize().height +
-                    (contentPanel.isVisible() ? contentPanel.getPreferredSize().height : 0);
+            // This now needs to calculate height based on the currently visible card
+            JPanel visiblePanel = null;
+            for (Component comp : cardsPanel.getComponents()) {
+                if (comp.isVisible()) {
+                    visiblePanel = (JPanel) comp;
+                    break;
+                }
+            }
+
+            int contentHeight = 0;
+            if (cardsPanel.isVisible() && visiblePanel != null) {
+                contentHeight = visiblePanel.getPreferredSize().height;
+            }
+
+            int height = titleButton.getPreferredSize().height + contentHeight;
             setMaximumSize(new Dimension(Integer.MAX_VALUE, height));
         }
     }
