@@ -9,9 +9,10 @@ Watch musical pieces come to life with an animated piano display — or connect 
 
 ## 🎥 Demo
 
-![Melodigram Demo](https://github.com/user-attachments/assets/d9eed213-ef31-4631-b8b9-b2bb5e266267)
+![demogif2](https://github.com/user-attachments/assets/78767fd0-896c-4d78-8ce3-84d4993e78b8)
 
 ---
+
 
 ## About The Project
 
