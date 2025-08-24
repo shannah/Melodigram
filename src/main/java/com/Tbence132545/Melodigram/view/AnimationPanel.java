@@ -176,13 +176,7 @@ public class AnimationPanel extends JPanel {
         for (int i = notes.size() - 1; i >= 0; i--) {
             FallingNote n = notes.get(i);
             if (n.midiNote == midiNote && t >= n.noteOnTime && t < n.noteOffTime && n.hand != null) {
-
-                // --- THIS IS THE FIX ---
-
-                // 1. Get the original semi-transparent color.
                 Color semiTransparentColor = colorForHighlight(n);
-
-                // 2. Return a NEW, FULLY OPAQUE version of that color for the key.
                 return new Color(semiTransparentColor.getRed(), semiTransparentColor.getGreen(), semiTransparentColor.getBlue(), 255);
             }
         }
@@ -325,7 +319,7 @@ public class AnimationPanel extends JPanel {
 
 
                 g.fillRoundRect(bounds.x, bounds.y, bounds.width, noteHeight, NOTE_CORNER_RADIUS, NOTE_CORNER_RADIUS);
-                if(hand!=null){
+                if(hand!=null && isHandAssignmentEnabled){
                     String text = (hand == Hands.LEFT) ? "L": "R";
                     g.setFont(NOTE_TEXT_FONT);
                     g.setColor(NOTE_TEXT_COLOR);
