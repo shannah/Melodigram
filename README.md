@@ -1,4 +1,4 @@
-# 🎹 Melodigram
+# Melodigram
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
@@ -13,41 +13,45 @@ Watch musical pieces come to life with an animated piano display — or connect 
 
 ---
 
-## 📖 About The Project
+## About The Project
 
 I’ve always wanted to create an **open-source, free alternative to Synthesia**.  
-This project aims to be a tool for people who have no musical background and want to start learning piano.  
+This is a hobby project aiming to be a tool for people who have no musical background and want to start learning piano.  
 
 ---
 
-## ✨ Features
+## Features
 
 - **MIDI Playback** – Load and play any standard `.mid` file  
 - **Real-time Visualization** – Notes light up on a virtual piano as they are played  
 - **Waterfall Animation** – Animated falling notes for easier practice  
 - **Live MIDI Input** – Connect your own MIDI keyboard/controller to learn interactively  
-- **Playback Controls** – Functional seek bar with full playback control  
+- **Playback Controls** – Functional seek bar with full playback control
+- **Dragging** - You can drag the animation up and down to traverse the visualization
+- **Hand assignment** - You can enter the "Assign Hands" mode, where you can mark hands as left or right by clicking left or right respectively
+- **Practice** - You can practice the pieces at your own pace, if you have created a hand assignment for a piece you can practice the parts seperately
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 This application is self-contained and does not require you to install Java separately.
 
 1.  Go to the [**Releases Page**](https://github.com/Tbence132545/Melodigram/releases).
-2.  Download the `release.zip` file from the latest release.
-3.  Unzip the downloaded file.
-4.  Run `Melodigram.exe` from inside the unzipped folder.
+2.  Download the installer for your operating system from the latest release.
+3.  Run the executable from inside the folder 
+**The operating system might mark it as dangerous, I just didn't license it**
+
 
 ---
 
-## 🛠️ Building from Source (for Developers)
+## Building from Source (for Developers)
 
 If you want to build the project yourself, follow these steps.
 
 ### Prerequisites
 
-* JDK 21 or newer.
+* JDK 23 or newer.
 * Git.
 
 ### Installation
