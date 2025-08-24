@@ -101,25 +101,7 @@ public class MidiPlayer {
 
         return new int[]{lowest, highest};
     }
-    //method for skipping
-    public void forward() {
-        if (sequencer == null) return;
-        // 5 seconds = 5,000,000 microseconds
-        long jumpAmount = 5_000_000L;
-        long currentPosition = sequencer.getMicrosecondPosition();
-        sequencer.setMicrosecondPosition(currentPosition + jumpAmount);
-    }
 
-    //method for moving backwards
-    public void backward() {
-        if (sequencer == null) return;
-        // 5 seconds = 5,000,000 microseconds
-        long jumpAmount = 5_000_000L;
-        long currentPosition = sequencer.getMicrosecondPosition();
-        // Use Math.max to prevent setting a negative position
-        long newPosition = Math.max(0L, currentPosition - jumpAmount);
-        sequencer.setMicrosecondPosition(newPosition);
-    }
     //Starts the sequencer
     public void play() {
             sequencer.start();

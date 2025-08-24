@@ -60,27 +60,56 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
     }
 
     @Override
-    public void onWatchAndListenClicked(String midiFilename) {
-        // Restore the crucial logic to handle the inconsistent path from the view
+    public void onAssignHandsClicked(String midiFilename) {
+        //Launch pianoWindow in editing mode
         String simpleFilename = midiFilename.replace("midi/", "");
-        openPianoWindow(simpleFilename, false);
+        openPianoWindowForEditing(simpleFilename);
+    }
+    @Override
+    public void onWatchAndListenClicked(String midiFilename) {
+        String simpleFilename = midiFilename.replace("midi/", "");
+        openPianoWindow(simpleFilename, false, null);
     }
 
     @Override
-    public void onPracticeClicked(String midiFilename) {
+    public void onPracticeClicked(String midiFilename, HandMode mode) {
         MidiInputSelector selector = new MidiInputSelector(view, deviceInfo -> {
             if (deviceInfo != null) {
-                openPianoWindow(midiFilename, true, deviceInfo);
+                openPianoWindow(midiFilename, true, mode, deviceInfo);
             }
         });
         selector.setVisible(true);
     }
+    private void openPianoWindowForEditing(String midiFileName) {
+        SwingUtilities.invokeLater(() -> {
+            try {
+                MidiFileService.MidiData midiData = midiFileService.loadMidiData(midiFileName);
+                int[] range = MidiPlayer.extractNoteRange(midiData.sequence());
+                PianoWindow pianoWindow = new PianoWindow(range[0], range[1]);
+                PlaybackController playbackController = new PlaybackController(midiData.player(), pianoWindow);
 
-    private void openPianoWindow(String midiFileName, boolean isPractice, MidiDevice.Info... midiDeviceInfo) {
+                playbackController.setEditingMode(true);
+
+                pianoWindow.setBackButtonListener(e -> {
+                    midiData.player().stop();
+                    pianoWindow.dispose();
+                    view.setVisible(true);
+                });
+
+                pianoWindow.setVisible(true);
+                view.setVisible(false);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(view, "Error Opening Editor:\n" + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+    }
+    private void openPianoWindow(String midiFileName, boolean isPractice, HandMode hand, MidiDevice.Info... midiDeviceInfo) {
         SwingUtilities.invokeLater(() -> {
             MidiDevice inputDevice = null;
             try {
-                // Load MIDI data using the service - NO MORE DUPLICATION
+                // Load MIDI data using the service
                 MidiFileService.MidiData midiData = midiFileService.loadMidiData(midiFileName);
 
                 int[] range = MidiPlayer.extractNoteRange(midiData.sequence());
@@ -90,7 +119,7 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
                 if (isPractice) {
                     if (midiDeviceInfo.length == 0) throw new IllegalStateException("MIDI device info required for practice mode.");
                     inputDevice = MidiSystem.getMidiDevice(midiDeviceInfo[0]);
-                    playbackController.setPracticeMode(true);
+                    playbackController.setPracticeMode(true, hand);
                     playbackController.setMidiInputDevice(inputDevice);
                 }
 
