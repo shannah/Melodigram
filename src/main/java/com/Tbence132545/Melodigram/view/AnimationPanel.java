@@ -12,7 +12,19 @@ import java.util.function.Function;
 import java.util.function.LongConsumer;
 
 public class AnimationPanel extends JPanel {
+    public static class HandAssignment {
+        public final int midiNote;
+        public final long on;
+        public final long off;
+        public final String hand; // "LEFT" | "RIGHT"
 
+        public HandAssignment(int midiNote, long on, long off, String hand) {
+            this.midiNote = midiNote;
+            this.on = on;
+            this.off = off;
+            this.hand = hand;
+        }
+    }
     // --- Drawing & Animation Constants ---
     private static final double PIXELS_PER_MILLISECOND = 0.1;
     private static final long NOTE_FALL_DURATION_MS = 2000;
@@ -57,6 +69,39 @@ public class AnimationPanel extends JPanel {
     }
 
     // --- Public API for Controller ---
+    public List<HandAssignment> getAssignedNotes() {
+        List<HandAssignment> result = new ArrayList<>();
+        for (FallingNote n : notes) {
+            if (n.hand != null) {
+                result.add(new HandAssignment(
+                        n.midiNote,
+                        n.noteOnTime,
+                        n.noteOffTime,
+                        n.hand.name()
+                ));
+            }
+        }
+        return result;
+    }
+    public void applyHandAssignments(List<HandAssignment> assignments) {
+        if (assignments == null || assignments.isEmpty()) return;
+        final long TOL_MS = 5; // small time tolerance to account for rounding
+
+        for (HandAssignment a : assignments) {
+            for (FallingNote n : notes) {
+                if (n.midiNote == a.midiNote
+                        && Math.abs(n.noteOnTime - a.on) <= TOL_MS
+                        && Math.abs(n.noteOffTime - a.off) <= TOL_MS) {
+                    try {
+                        n.setHand(FallingNote.Hands.valueOf(a.hand));
+                    } catch (IllegalArgumentException ignored) {
+                        // Ignore invalid persisted value
+                    }
+                }
+            }
+        }
+        repaint();
+    }
     public void setHandAssignmentMode(boolean enabled) {
         this.isHandAssignmentEnabled = enabled;
     }

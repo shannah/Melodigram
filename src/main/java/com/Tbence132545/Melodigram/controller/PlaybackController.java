@@ -9,7 +9,17 @@ import com.Tbence132545.Melodigram.view.SeekBar;
 import javax.sound.midi.*;
 import javax.swing.*;
 import javax.swing.Timer;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class PlaybackController {
 
@@ -17,7 +27,9 @@ public class PlaybackController {
     private static final int TARGET_FPS = 60;
     private static final int TIMER_DELAY_MS = 1000 / TARGET_FPS;
     private static final long STARTUP_DELAY_MS = 3000;
-
+    private static final Path ASSIGNMENTS_DIR = Paths.get(
+            System.getProperty("user.home"), ".melodigram", "assignments"
+    );
     private final MidiPlayer midiPlayer;
     private final PianoWindow pianoWindow;
     private final AnimationPanel animationPanel;
@@ -110,7 +122,6 @@ public class PlaybackController {
         seekBar.updateProgress();
     }
 
-    // AROUND LINE 115
     private void handleInitialStartup(long now) {
         if (midiPlayer.getSequencer().getMicrosecondLength() > 0 && now - startTime > STARTUP_DELAY_MS) {
             // This call enables all buttons, including re-enabling interaction on the seek bar.
@@ -133,20 +144,13 @@ public class PlaybackController {
         }
     }
 
-    // ==================== FIX IS HERE ====================
     private void handlePlaybackModeTick(long delta) {
-        // THIS IS THE KEY: We need both tick() and updatePlaybackTime().
-        // tick(delta) is responsible for the smooth frame-by-frame MOVEMENT of notes.
         animationPanel.tick(delta);
-
-        // updatePlaybackTime() is responsible for keeping the animation perfectly
-        // SYNCHRONIZED with the audio source of truth.
         if (midiPlayer.isPlaying()) {
             long newTimeMillis = midiPlayer.getSequencer().getMicrosecondPosition() / 1000;
             animationPanel.updatePlaybackTime(newTimeMillis);
         }
     }
-    // ======================================================
 
     private void handlePracticeModeTick(long delta) {
         boolean chordIsSatisfied = false;
@@ -305,24 +309,118 @@ public class PlaybackController {
         }
     }
     private void handleSave() {
-        if (!isEditingMode) return; // Safety check
-        System.out.println("Save button clicked! Time to save the hand data.");
-        JOptionPane.showMessageDialog(pianoWindow, "Hand assignments saved (placeholder)!", "Saved", JOptionPane.INFORMATION_MESSAGE);
+        if (!isEditingMode) return;
+        saveAssignments();
     }
     //   Private MIDI Callbacks and Helpers  
+    private static String computeSequenceHash(Sequence sequence) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            for (Track track : sequence.getTracks()) {
+                for (int i = 0; i < track.size(); i++) {
+                    MidiEvent ev = track.get(i);
+                    updateDigestWithLong(md, ev.getTick());
+                    MidiMessage msg = ev.getMessage();
+                    byte[] raw = msg.getMessage();
+                    md.update(raw, 0, msg.getLength());
+                }
+            }
+            byte[] digest = md.digest();
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-1 unavailable", e);
+        }
+    }
 
+    private static void updateDigestWithLong(MessageDigest md, long v) {
+        byte[] b = new byte[8];
+        for (int i = 7; i >= 0; i--) {
+            b[i] = (byte) (v & 0xFF);
+            v >>= 8;
+        }
+        md.update(b);
+    }
+
+    private Path getAssignmentFilePath(Sequence sequence) {
+        String hash = computeSequenceHash(sequence);
+        return ASSIGNMENTS_DIR.resolve(hash + ".json");
+    }
+
+    private String toJson(List<AnimationPanel.HandAssignment> items, String midiHash) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"midiHash\":\"").append(midiHash).append("\",\"assignments\":[");
+        for (int i = 0; i < items.size(); i++) {
+            AnimationPanel.HandAssignment a = items.get(i);
+            sb.append("{\"note\":").append(a.midiNote)
+                    .append(",\"on\":").append(a.on)
+                    .append(",\"off\":").append(a.off)
+                    .append(",\"hand\":\"").append(a.hand).append("\"}");
+            if (i < items.size() - 1) sb.append(",");
+        }
+        sb.append("]}");
+        return sb.toString();
+    }
+
+    private List<AnimationPanel.HandAssignment> fromJson(String json) {
+        List<AnimationPanel.HandAssignment> list = new ArrayList<>();
+        if (json == null || json.isEmpty()) return list;
+
+        Pattern p = Pattern.compile("\\{\\s*\"note\"\\s*:\\s*(\\d+)\\s*,\\s*\"on\"\\s*:\\s*(\\d+)\\s*,\\s*\"off\"\\s*:\\s*(\\d+)\\s*,\\s*\"hand\"\\s*:\\s*\"(LEFT|RIGHT)\"\\s*\\}");
+        Matcher m = p.matcher(json);
+        while (m.find()) {
+            int note = Integer.parseInt(m.group(1));
+            long on = Long.parseLong(m.group(2));
+            long off = Long.parseLong(m.group(3));
+            String hand = m.group(4);
+            list.add(new AnimationPanel.HandAssignment(note, on, off, hand));
+        }
+        return list;
+    }
+
+    private void loadAssignmentsIfPresent(Sequence sequence) {
+        Path file = getAssignmentFilePath(sequence);
+        try {
+            if (Files.exists(file)) {
+                String content = Files.readString(file, StandardCharsets.UTF_8);
+                List<AnimationPanel.HandAssignment> items = fromJson(content);
+                animationPanel.applyHandAssignments(items);
+            }
+        } catch (IOException e) {
+            // Non-fatal; just log to console
+            e.printStackTrace();
+        }
+    }
+
+    private void saveAssignments() {
+        List<AnimationPanel.HandAssignment> items = animationPanel.getAssignedNotes();
+        if (items.isEmpty()) {
+            JOptionPane.showMessageDialog(pianoWindow, "No hand assignments to save.", "Nothing to save", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        Sequence seq = midiPlayer.getSequencer().getSequence();
+        String hash = computeSequenceHash(seq);
+        Path file = getAssignmentFilePath(seq);
+        try {
+            Files.createDirectories(ASSIGNMENTS_DIR);
+            String json = toJson(items, hash);
+            Files.writeString(file, json, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            JOptionPane.showMessageDialog(pianoWindow, "Saved hand assignments to:\n" + file.toAbsolutePath(), "Saved", JOptionPane.INFORMATION_MESSAGE);
+        } catch (IOException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(pianoWindow, "Failed to save assignments:\n" + e.getMessage(), "Save error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
     private void onNoteOn(int midiNote) {
-        // --- CHANGE THIS LINE ---
-        // OLD: if (!isPracticeMode) {
-        if (!isPracticeMode && !isEditingMode) { // NEW: Also ignore in editing mode
+
+        if (!isPracticeMode && !isEditingMode) {
             SwingUtilities.invokeLater(() -> pianoWindow.highlightNote(midiNote));
         }
     }
 
     private void onNoteOff(int midiNote) {
-        // --- CHANGE THIS LINE ---
-        // OLD: if (!isPracticeMode) {
-        if (!isPracticeMode && !isEditingMode) { // NEW: Also ignore in editing mode
+        if (!isPracticeMode && !isEditingMode) {
             SwingUtilities.invokeLater(() -> pianoWindow.releaseNote(midiNote));
         }
     }
@@ -367,6 +465,7 @@ public class PlaybackController {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        loadAssignmentsIfPresent(sequence);
     }
 
     //   Inner Class for MIDI Receiver  
