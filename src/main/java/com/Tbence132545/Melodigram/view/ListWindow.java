@@ -8,6 +8,7 @@ public class ListWindow extends JFrame {
     public interface MidiFileActionListener {
         void onWatchAndListenClicked(String midiFilename);
         void onPracticeClicked(String midiFilename);
+        void onAssignHandsClicked(String midiFilename);
     }
     private final JPanel contentPanel;
     private JButton backButton;
@@ -157,8 +158,11 @@ public class ListWindow extends JFrame {
             JButton practiceButton = createModernButton("Practice");
             practiceButton.addActionListener(e -> listener.onPracticeClicked(title));
 
+            JButton assignHandsButton = createModernButton("Assign Hands");
+            assignHandsButton.addActionListener(e -> listener.onAssignHandsClicked(title));
             contentPanel.add(listenButton);
             contentPanel.add(practiceButton);
+            contentPanel.add(assignHandsButton);
             contentPanel.setVisible(false);
 
             titleButton.addActionListener(e -> toggleVisibility());

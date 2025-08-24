@@ -60,6 +60,10 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
     }
 
     @Override
+    public void onAssignHandsClicked(String midiFilename) {
+        //This is where I'll handle how the hand assignment window will look like.
+    }
+    @Override
     public void onWatchAndListenClicked(String midiFilename) {
         // Restore the crucial logic to handle the inconsistent path from the view
         String simpleFilename = midiFilename.replace("midi/", "");
