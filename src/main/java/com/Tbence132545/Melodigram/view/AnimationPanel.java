@@ -171,7 +171,31 @@ public class AnimationPanel extends JPanel {
     }
 
     // --- Inner Classes ---
+    public Color getAssignedHighlightColor(int midiNote) {
+        long t = getCurrentTimeMillis();
+        for (int i = notes.size() - 1; i >= 0; i--) {
+            FallingNote n = notes.get(i);
+            if (n.midiNote == midiNote && t >= n.noteOnTime && t < n.noteOffTime && n.hand != null) {
 
+                // --- THIS IS THE FIX ---
+
+                // 1. Get the original semi-transparent color.
+                Color semiTransparentColor = colorForHighlight(n);
+
+                // 2. Return a NEW, FULLY OPAQUE version of that color for the key.
+                return new Color(semiTransparentColor.getRed(), semiTransparentColor.getGreen(), semiTransparentColor.getBlue(), 255);
+            }
+        }
+        return null;
+    }
+
+    private Color colorForHighlight(FallingNote n) {
+        boolean isLeft = (n.hand == FallingNote.Hands.LEFT);
+        boolean isBlack = n.isBlackKey;
+        // Use the exact colors you use when drawing the falling notes
+        return isLeft ? (isBlack ? COLOR_LEFT_BLACK : COLOR_LEFT_WHITE)
+                : (isBlack ? COLOR_RIGHT_BLACK : COLOR_RIGHT_WHITE);
+    }
     private class NoteClickHandler extends MouseAdapter {
         @Override
         public void mousePressed(MouseEvent e) {

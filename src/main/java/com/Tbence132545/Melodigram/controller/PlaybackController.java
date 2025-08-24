@@ -413,16 +413,28 @@ public class PlaybackController {
         }
     }
     private void onNoteOn(int midiNote) {
-
-        if (!isPracticeMode && !isEditingMode) {
-            SwingUtilities.invokeLater(() -> pianoWindow.highlightNote(midiNote));
+        if (isPracticeMode || isEditingMode) {
+            return;
         }
+
+        // --- THE ONLY CHANGE IS HERE ---
+
+        // 1. Get the player's precise current time.
+        long playerTimeMillis = midiPlayer.getSequencer().getMicrosecondPosition() / 1000;
+
+        // 2. Force the animation panel to sync to that exact time.
+        animationPanel.updatePlaybackTime(playerTimeMillis);
+
+        // Now, the existing code will work perfectly because the clocks are synced.
+        SwingUtilities.invokeLater(() -> pianoWindow.highlightNote(midiNote));
     }
 
     private void onNoteOff(int midiNote) {
-        if (!isPracticeMode && !isEditingMode) {
-            SwingUtilities.invokeLater(() -> pianoWindow.releaseNote(midiNote));
+        if (isPracticeMode || isEditingMode) {
+            return;
         }
+        // No changes needed here, as releasing the key doesn't require a color lookup.
+        SwingUtilities.invokeLater(() -> pianoWindow.releaseNote(midiNote));
     }
     private void resetPracticeState() {
         synchronized (currentlyPressedNotes) {
