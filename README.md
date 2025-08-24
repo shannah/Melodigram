@@ -81,7 +81,7 @@ If you want to build the project yourself, follow these steps.
 
 ---
 
-## 💻 Technologies Used
+## Technologies Used
 
 * [Java](https://www.java.com/)
 * [Java Swing](https://docs.oracle.com/javase/tutorial/uiswing/) (for the graphical user interface)
@@ -89,6 +89,6 @@ If you want to build the project yourself, follow these steps.
 
 ---
 
-## 📄 License
+## License
 
 This project is distributed under the MIT License. See the `LICENSE` file for more information.
