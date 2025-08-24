@@ -39,7 +39,8 @@ This application is self-contained and does not require you to install Java sepa
 
 1.  Go to the [**Releases Page**](https://github.com/Tbence132545/Melodigram/releases).
 2.  Download the installer for your operating system from the latest release.
-3.  Run the executable from inside the folder 
+3.  Run the executable from inside the folder
+   
 **The operating system might mark it as dangerous, I just didn't license it**
 
 
