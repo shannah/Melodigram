@@ -12,6 +12,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 public class PlaybackController {
     private final MidiPlayer midiPlayer;
@@ -31,8 +33,10 @@ public class PlaybackController {
     // Drag state
     private boolean wasPlayingBeforeDrag = false;
 
-    // Practice gating state: which notes we are waiting for (set only when we cross an onset)
+    // Practice gating state
     private final List<Integer> awaitedNotes = new ArrayList<>();
+    private final Set<Integer> notesPressedInChordAttempt = new HashSet<>();
+
 
     public PlaybackController(MidiPlayer midiPlayer, PianoWindow pianoWindow) {
         this.midiPlayer = midiPlayer;
@@ -45,7 +49,6 @@ public class PlaybackController {
         seekBar = new SeekBar(midiPlayer.getSequencer());
         pianoWindow.addSeekBar(seekBar);
 
-        // Always update animation time on seek and reset practice state
         seekBar.setSeekListener(newMicroseconds -> {
             long newMillis = newMicroseconds / 1000;
             animationPanel.updatePlaybackTime(newMillis);
@@ -66,7 +69,6 @@ public class PlaybackController {
             resetPracticeState();
         });
 
-        // Drag-to-scrub on animation panel
         long totalMillis = midiPlayer.getSequencer().getMicrosecondLength() / 1000;
         animationPanel.setTotalDurationMillis(totalMillis);
         animationPanel.setOnDragStart(() -> {
@@ -113,40 +115,54 @@ public class PlaybackController {
 
             if (animationPaused) return;
 
-            // Practice gating based on onsets crossed between frames
             if (isPracticeMode) {
-                long prevTime = animationPanel.getCurrentTimeMillis();
-                long nextTime = prevTime + delta;
+                boolean chordIsSatisfied = false;
+                if (!awaitedNotes.isEmpty()) {
+                    Set<Integer> currentlyHeldSet = new HashSet<>(currentlyPressedNotes);
+                    Set<Integer> expectedSet = new HashSet<>(awaitedNotes);
 
-                if (awaitedNotes.isEmpty()) {
-                    // Inclusive lower bound only at t==0 to catch the very first chord
-                    long onsetStart = (prevTime == 0) ? -1 : prevTime;
-                    List<Integer> onsets = animationPanel.getNotesStartingBetween(onsetStart, nextTime);
-                    if (!onsets.isEmpty()) {
-                        awaitedNotes.clear();
-                        awaitedNotes.addAll(onsets);
+                    if (notesPressedInChordAttempt.containsAll(expectedSet) && currentlyHeldSet.equals(expectedSet)) {
+                        chordIsSatisfied = true;
+                    } else {
                         SwingUtilities.invokeLater(() -> {
-                            pianoWindow.releaseAllKeys();
-                            for (Integer n : awaitedNotes) pianoWindow.highlightNote(n);
+                            for (int note : awaitedNotes) {
+                                synchronized (currentlyPressedNotes) {
+                                    if (!currentlyPressedNotes.contains(note)) {
+                                        pianoWindow.highlightNote(note);
+                                    }
+                                }
+                            }
                         });
-                        return; // block until the correct notes are pressed
+                        return; // Halt animation and wait for user input.
                     }
-                } else {
-                    synchronized (currentlyPressedNotes) {
-                        List<Integer> pressed = new ArrayList<>(currentlyPressedNotes);
-                        pressed.sort(Integer::compareTo);
-                        List<Integer> expected = new ArrayList<>(awaitedNotes);
-                        expected.sort(Integer::compareTo);
-                        if (!pressed.equals(expected)) {
-                            return; // still waiting, keep animation halted
-                        }
-                    }
-                    awaitedNotes.clear();
-                    SwingUtilities.invokeLater(pianoWindow::releaseAllKeys);
                 }
+
+                long prevTime = animationPanel.getCurrentTimeMillis();
+                animationPanel.tick(delta);
+                long nextTime = animationPanel.getCurrentTimeMillis();
+
+                long onsetStart = (prevTime == 0) ? -1 : prevTime;
+                List<Integer> onsets = animationPanel.getNotesStartingBetween(onsetStart, nextTime);
+
+                if (!onsets.isEmpty()) {
+                    awaitedNotes.clear();
+                    awaitedNotes.addAll(onsets);
+                    notesPressedInChordAttempt.clear();
+
+                    SwingUtilities.invokeLater(() -> {
+                        pianoWindow.releaseAllKeys();
+                        for (Integer note : awaitedNotes) {
+                            pianoWindow.highlightNote(note);
+                        }
+                    });
+                } else if (chordIsSatisfied) {
+                    awaitedNotes.clear();
+                }
+
+            } else {
+                animationPanel.tick(delta);
             }
 
-            animationPanel.tick(delta);
             seekBar.updateProgress();
         });
 
@@ -154,6 +170,8 @@ public class PlaybackController {
         sharedTimer.start();
     }
 
+    // ... (rest of the class methods: setPracticeMode, setMidiInputDevice, etc. are unchanged) ...
+    // ... Please use the methods from the previous response ...
     public void setPracticeMode(boolean enabled){
         this.isPracticeMode = enabled;
         pianoWindow.disableButtons(enabled);
@@ -183,12 +201,15 @@ public class PlaybackController {
                             synchronized (currentlyPressedNotes) {
                                 if (!currentlyPressedNotes.contains(note)) {
                                     currentlyPressedNotes.add(note);
+                                    notesPressedInChordAttempt.add(note);
+                                    // This highlights the key the user *just pressed*.
                                     SwingUtilities.invokeLater(() -> pianoWindow.highlightNote(note));
                                 }
                             }
                         } else if (command == ShortMessage.NOTE_OFF || (command == ShortMessage.NOTE_ON && sm.getData2() == 0)) {
                             synchronized (currentlyPressedNotes) {
                                 currentlyPressedNotes.remove((Integer) note);
+                                // This releases the highlight when the user lets go.
                                 SwingUtilities.invokeLater(() -> pianoWindow.releaseNote(note));
                             }
                         }
@@ -202,32 +223,34 @@ public class PlaybackController {
     }
 
     void onNoteOn(int midiNote){
-        if (isPracticeMode) return; // prevent listen-mode highlighting in practice
+        if (isPracticeMode) return;
         SwingUtilities.invokeLater(() -> pianoWindow.highlightNote(midiNote));
     }
 
     private void onNoteOff(int midiNote){
-        if (isPracticeMode) return; // prevent listen-mode highlighting in practice
+        if (isPracticeMode) return;
         SwingUtilities.invokeLater(() -> pianoWindow.releaseNote(midiNote));
     }
 
     void togglePlayback() {
         if (isPracticeMode) {
-            // In practice, only pause/resume animation timer
             animationPaused = !animationPaused;
-            if (!animationPaused) sharedTimer.start();
-            SwingUtilities.invokeLater(() -> pianoWindow.setPlayButtonText(animationPaused ? "||" : "▶"));
+            if (!animationPaused) {
+                lastTickTime = System.currentTimeMillis();
+                sharedTimer.start();
+            }
+            SwingUtilities.invokeLater(() -> pianoWindow.setPlayButtonText(animationPaused ? "▶" : "||"));
             return;
         }
         if (midiPlayer.isPlaying()) {
             midiPlayer.stop();
             animationPaused = true;
-            SwingUtilities.invokeLater(() -> pianoWindow.setPlayButtonText("||"));
+            SwingUtilities.invokeLater(() -> pianoWindow.setPlayButtonText("▶"));
         } else {
             midiPlayer.play();
             sharedTimer.start();
             animationPaused = false;
-            SwingUtilities.invokeLater(() -> pianoWindow.setPlayButtonText("▶"));
+            SwingUtilities.invokeLater(() -> pianoWindow.setPlayButtonText("||"));
         }
     }
 
@@ -274,12 +297,12 @@ public class PlaybackController {
         }
     }
 
-    // --- helpers ---
     private void resetPracticeState() {
         synchronized (currentlyPressedNotes) {
             currentlyPressedNotes.clear();
         }
         awaitedNotes.clear();
+        notesPressedInChordAttempt.clear();
         SwingUtilities.invokeLater(pianoWindow::releaseAllKeys);
     }
 }

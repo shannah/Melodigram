@@ -3,8 +3,6 @@ package com.Tbence132545.Melodigram.view;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -19,8 +17,7 @@ public class MainWindow extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         setExtendedState(JFrame.MAXIMIZED_BOTH);
-        setMinimumSize(new Dimension(600, 600));
-
+        setMinimumSize(new Dimension(800, 800));
         // Main layout uses BorderLayout for better responsiveness
         setLayout(new BorderLayout());
 
@@ -36,9 +33,9 @@ public class MainWindow extends JFrame {
 
         // Add logo
         try {
-            BufferedImage logoImage = ImageIO.read(getClass().getResourceAsStream("/images/logofinal.jpg"));
-            int newWidth = logoImage.getWidth() / 2;
-            int newHeight = logoImage.getHeight() / 2;
+            BufferedImage logoImage = ImageIO.read(getClass().getResourceAsStream("/images/logo.jpg"));
+            int newWidth = logoImage.getWidth() / 4;
+            int newHeight = logoImage.getHeight() /4;
             Image resizedImage = logoImage.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
 
             JLabel logoLabel = new JLabel(new ImageIcon(resizedImage));
@@ -49,14 +46,8 @@ public class MainWindow extends JFrame {
             System.err.println("Could not load logo image: " + e.getMessage());
         }
 
-        // Add title and buttons
-        JLabel titleLabel = new JLabel("Melodigram");
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 36));
-        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        titleLabel.setForeground(Color.WHITE);
 
-        centerPanel.add(titleLabel);
-        centerPanel.add(Box.createVerticalStrut(40));
+
         centerPanel.add(playButton);
         centerPanel.add(Box.createVerticalStrut(20));
         centerPanel.add(quitButton);
