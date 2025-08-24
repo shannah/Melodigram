@@ -190,7 +190,7 @@ public class PianoWindow extends JFrame {
             JButton keyButton = createKeyButton(keyType);
 
             if (keyType == KeyType.WHITE) {
-                addWhiteKey(keyButton, whiteKeyIndex, i == middleCNote);
+                addWhiteKey(keyButton, whiteKeyIndex, i == middleCNote,i);
                 whiteKeyIndex++;
             } else {
                 addBlackKey(keyButton, whiteKeyIndex);
@@ -228,26 +228,24 @@ public class PianoWindow extends JFrame {
         return closestC;
     }
 
-    private void addWhiteKey(JButton keyButton, int whiteKeyIndex, boolean isMiddleC) {
+    private void addWhiteKey(JButton keyButton, int whiteKeyIndex, boolean isMiddleC, int midiNote) {
         keyButton.setBounds(whiteKeyIndex * whiteKeyWidth, 0, whiteKeyWidth, WHITE_KEY_HEIGHT);
+
         if (isMiddleC) {
-            int octave = (keyButton.hashCode() / 12) -1; // hashCode is midi note number, set in createKey
-            int noteNumber = noteToKeyButton.entrySet().stream()
-                    .filter(entry -> entry.getValue() == keyButton)
-                    .map(Map.Entry::getKey)
-                    .findFirst()
-                    .orElse(-1);
+            // We now have the correct midiNote, so we can calculate the octave directly.
+            int octave = (midiNote / 12) - 1;
+            JLabel label = new JLabel("C" + octave, SwingConstants.CENTER);
+            label.setFont(PIANO_LABEL_FONT);
 
-            if(noteNumber != -1) {
-                octave = (noteNumber / 12) -1;
-                JLabel label = new JLabel("C" + octave, SwingConstants.CENTER);
-                label.setFont(PIANO_LABEL_FONT);
-                label.setBounds(0, WHITE_KEY_HEIGHT - 20, whiteKeyWidth, 20);
-                keyButton.setLayout(new BorderLayout()); // Use layout manager for label
-                keyButton.add(label, BorderLayout.SOUTH);
-            }
+            // This prevents visual glitches when the key is highlighted.
+            label.setOpaque(false);
+            // A dark color will be visible on the white key.
+            label.setForeground(Color.DARK_GRAY);
 
+            keyButton.setLayout(new BorderLayout());
+            keyButton.add(label, BorderLayout.SOUTH);
         }
+
         pianoPanel.add(keyButton, JLayeredPane.DEFAULT_LAYER);
     }
 
