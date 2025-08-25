@@ -16,9 +16,11 @@ Watch musical pieces come to life with an animated piano display — or connect 
 
 ## About The Project
 
-This is purely experimental hobby project aiming to be a tool for people who have no musical background and want to start learning piano.  
-I choose Java Swing for all UI related things, just as a challenge to see if I can push the framework outside of its intented scope. 
----
+This is a purely experimental hobby project that aims to provide a tool for people with no musical background who want to start learning piano.  
+Unlike most Synthesia-like applications, which are typically built with game engines or modern multimedia frameworks, I chose **Java Swing** for all UI-related work.  
+
+The reason is simple: I wanted to challenge myself and see how far I could push a traditional desktop GUI framework outside of its intended scope.  
+Building real-time animations, MIDI synchronization, and smooth rendering in Swing was far from easy, but that was exactly the point — this project is as much about exploring technical limitations as it is about creating a learning tool.  
 
 ## Features
 
