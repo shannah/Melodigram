@@ -16,9 +16,8 @@ Watch musical pieces come to life with an animated piano display — or connect 
 
 ## About The Project
 
-I’ve always wanted to create an **open-source, free alternative to Synthesia**.  
-This is a hobby project aiming to be a tool for people who have no musical background and want to start learning piano.  
-
+This is purely experimental hobby project aiming to be a tool for people who have no musical background and want to start learning piano.  
+I choose Java Swing for all UI related things, just as a challenge to see if I can push the framework outside of its intented scope. 
 ---
 
 ## Features
