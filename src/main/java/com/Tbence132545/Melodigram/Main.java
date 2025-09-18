@@ -16,7 +16,6 @@ import javax.sound.midi.MidiUnavailableException;
 public class Main {
         public static void main(String[] args) {
             MainWindowController mainwincon = new MainWindowController(new MainWindow());
-
         }
 
     }

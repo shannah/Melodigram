@@ -24,7 +24,6 @@ import java.util.stream.Stream;
  */
 public class MidiFileService {
 
-    // A simple container for passing loaded MIDI data.
     public record MidiData(MidiPlayer player, Sequence sequence) {}
 
     private static final String INTERNAL_MIDI_DIR = "midi/";
@@ -34,37 +33,23 @@ public class MidiFileService {
         this.externalMidiDir = Paths.get(System.getProperty("user.home"), ".Melodigram", "midi");
     }
 
-    /**
-     * Imports a user-selected MIDI file into the application's external storage directory.
-     *
-     * @param sourceFile The file to import.
-     * @throws IOException If the file copy fails.
-     */
+
     public void importMidiFile(File sourceFile) throws IOException {
         Files.createDirectories(externalMidiDir);
         Path destinationPath = externalMidiDir.resolve(sourceFile.getName());
         Files.copy(sourceFile.toPath(), destinationPath, StandardCopyOption.REPLACE_EXISTING);
     }
 
-    /**
-     * Loads a MidiPlayer and Sequence for a given filename.
-     * It automatically determines if the file is an internal resource or an imported external file.
-     *
-     * @param midiFileName The simple name of the file (e.g., "song.mid").
-     * @return A MidiData record containing the configured MidiPlayer and Sequence.
-     * @throws Exception If loading fails for any reason.
-     */
+
     public MidiData loadMidiData(String midiFileName) throws Exception {
         MidiPlayer midiPlayer = new MidiPlayer();
         Sequence sequence;
 
         Path externalFile = externalMidiDir.resolve(midiFileName);
         if (Files.exists(externalFile)) {
-            // Load from the external (imported) directory
             midiPlayer.loadMidiFromFile(externalFile.toAbsolutePath().toString());
             sequence = MidiSystem.getSequence(externalFile.toFile());
         } else {
-            // Load from internal resources (JAR)
             String resourcePath = INTERNAL_MIDI_DIR + midiFileName;
             midiPlayer.loadMidiFromResources(resourcePath);
             try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
@@ -75,12 +60,6 @@ public class MidiFileService {
         return new MidiData(midiPlayer, sequence);
     }
 
-    /**
-     * Gets a sorted list of all available MIDI filenames from both
-     * internal resources and the external import folder.
-     *
-     * @return A sorted list of unique MIDI file names.
-     */
     public List<String> getAllMidiFileNames() {
         Set<String> allFiles = new HashSet<>(listInternalMidiResources());
         allFiles.addAll(listExternalMidiFiles());
@@ -120,7 +99,7 @@ public class MidiFileService {
                             .map(name -> name.substring(INTERNAL_MIDI_DIR.length()))
                             .collect(Collectors.toList());
                 }
-            } else { // "file" protocol for running from IDE
+            } else {
                 try (Stream<Path> stream = Files.list(Paths.get(url.toURI()))) {
                     return stream.filter(Files::isRegularFile)
                             .map(p -> p.getFileName().toString())

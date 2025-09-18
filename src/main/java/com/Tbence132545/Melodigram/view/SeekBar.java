@@ -19,8 +19,6 @@ public class SeekBar extends JComponent {
     private long durationMicros = 1;
     private final Sequencer sequencer;
     private SeekListener seekListener;
-
-    // New: explicit user interaction gate
     private volatile boolean userInteractionEnabled = true;
 
     public interface SeekListener {
@@ -78,7 +76,7 @@ public class SeekBar extends JComponent {
 
     public void setUserInteractionEnabled(boolean enabled) {
         this.userInteractionEnabled = enabled;
-        super.setEnabled(enabled); // also update visual state
+        super.setEnabled(enabled);
         if (!enabled) {
             dragging = false;
         }
@@ -153,9 +151,9 @@ public class SeekBar extends JComponent {
         g2.setColor(fg);
         g2.fillRoundRect(0, barY, filledWidth, barHeight, 4, 4);
 
-        int thumbX = filledWidth;
+
         g2.setColor(thumb);
-        g2.fillRect(thumbX - 1, barY - (barHeight / 2), 2, barHeight * 2);
+        g2.fillRect(filledWidth - 1, barY - (barHeight / 2), 2, barHeight * 2);
 
         g2.dispose();
     }

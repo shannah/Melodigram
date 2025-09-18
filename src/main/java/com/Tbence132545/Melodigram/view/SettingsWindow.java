@@ -9,7 +9,16 @@ import java.util.Objects;
 public class SettingsWindow extends JFrame {
 
     public SettingsWindow() {
-
+        super("Settings");
+        JOptionPane.showMessageDialog(
+                this,
+                "Not yet implemented!",
+                "Settings",
+                JOptionPane.INFORMATION_MESSAGE
+        );
+        setSize(400,300);
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
     }
 
 }

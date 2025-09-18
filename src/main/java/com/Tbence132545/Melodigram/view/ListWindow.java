@@ -24,12 +24,10 @@ public class ListWindow extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setExtendedState(JFrame.MAXIMIZED_BOTH);
 
-        // Main container
         JPanel mainPanel = new JPanel(new BorderLayout(20, 20));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
         mainPanel.setBackground(Color.BLACK);
 
-        // Top panel
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.setBackground(Color.BLACK);
 
@@ -38,7 +36,6 @@ public class ListWindow extends JFrame {
         label.setForeground(Color.WHITE);
         topPanel.add(label, BorderLayout.WEST);
 
-        // Buttons on the right
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttonPanel.setBackground(Color.BLACK);
 
@@ -146,13 +143,11 @@ public class ListWindow extends JFrame {
                 public void mouseExited(java.awt.event.MouseEvent evt) { titleButton.setBackground(new Color(40, 40, 40)); }
             });
 
-            // Card layout panel
             cardLayout = new CardLayout();
             cardsPanel = new JPanel(cardLayout);
             cardsPanel.setOpaque(false);
             cardsPanel.setVisible(false); // start collapsed
 
-            // Main actions
             JPanel mainActionsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
             mainActionsPanel.setOpaque(false);
 
@@ -164,12 +159,10 @@ public class ListWindow extends JFrame {
             mainActionsPanel.add(practiceButton);
             mainActionsPanel.add(assignHandsButton);
 
-            // Practice options (lazy)
             JPanel practiceOptionsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
             practiceOptionsPanel.setOpaque(false);
 
             practiceButton.addActionListener(e -> {
-                // check for assignments lazily
                 boolean hasAssignments = PlaybackController.assignmentFileExistsFor(title);
                 if (hasAssignments) {
                     JButton left = createCardButton("Just Left Hand", ev -> listener.onPracticeClicked(title, MidiFileActionListener.HandMode.LEFT));
@@ -192,11 +185,7 @@ public class ListWindow extends JFrame {
                 }
                 updatePanelHeight();
             });
-
-            // Add cards
             cardsPanel.add(mainActionsPanel, MAIN_ACTIONS);
-
-            // Toggle collapse
             titleButton.addActionListener(e -> toggleVisibility());
 
             add(titleButton, BorderLayout.NORTH);

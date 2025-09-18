@@ -15,7 +15,6 @@ public class MidiInputSelector extends JDialog {
     private final Consumer<MidiDevice.Info> onDeviceSelected;  // callback
     private boolean confirmed = false;
 
-    // Constructor with callback
     public MidiInputSelector(JFrame parent, Consumer<MidiDevice.Info> onDeviceSelected) {
         super(parent, "Select MIDI Input Device", true);
         this.onDeviceSelected = onDeviceSelected;
@@ -52,7 +51,6 @@ public class MidiInputSelector extends JDialog {
         });
         add(cancelBtn);
     }
-    //Loads available input devices for Practice mode
     private void loadMidiInputDevices() {
         MidiDevice.Info[] infos = MidiSystem.getMidiDeviceInfo();
         for (MidiDevice.Info info : infos) {
@@ -69,8 +67,6 @@ public class MidiInputSelector extends JDialog {
             deviceComboBox.setEnabled(false);
         }
     }
-
-    // Optional getter if you want to use without callback
     public MidiDevice.Info getSelectedDevice() {
         if (confirmed) {
             int index = deviceComboBox.getSelectedIndex();

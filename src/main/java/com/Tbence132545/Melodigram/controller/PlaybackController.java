@@ -6,17 +6,13 @@ import com.Tbence132545.Melodigram.view.AnimationPanel;
 import com.Tbence132545.Melodigram.view.ListWindow;
 import com.Tbence132545.Melodigram.view.PianoWindow;
 import com.Tbence132545.Melodigram.view.SeekBar;
-// GSON Imports
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
-
 
 import javax.sound.midi.*;
 import javax.swing.*;
 import javax.swing.Timer;
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,22 +24,17 @@ import java.util.*;
 
 public class PlaybackController {
 
-    // --- NEW: Gson instance for JSON handling ---
-    // Using setPrettyPrinting() makes the saved JSON files human-readable
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-    // --- NEW: Private classes to model the JSON structure ---
-    // This class represents the top-level structure of our JSON file.
     private static class HandAssignmentFile {
         String midiHash;
         List<AnimationPanel.HandAssignment> assignments;
     }
 
-    //   Constants for Readability
     private static final int TARGET_FPS = 60;
     private static final int TIMER_DELAY_MS = 1000 / TARGET_FPS;
-    private static final long STARTUP_DELAY_MS = 3000;
-    private static final Path ASSIGNMENTS_DIR; // Will be initialized in the static block
+    private static final long STARTUP_DELAY_MS = 3000; //This is used to delay the start of the animation upon loading the pianoWindow- I found it was neccessary to not have any delays between animation and sound
+    private static final Path ASSIGNMENTS_DIR;
 
     static {
         ASSIGNMENTS_DIR = getStandardApplicationDataDirectory().resolve("assignments");
@@ -69,7 +60,6 @@ public class PlaybackController {
     private final SeekBar seekBar;
     private final Timer sharedTimer;
 
-    //   State Fields
     private long startTime;
     private long lastTickTime;
     private boolean playbackStarted = false;
@@ -78,7 +68,6 @@ public class PlaybackController {
     private boolean isEditingMode= false;
     private boolean wasPlayingBeforeDrag = false;
     private ListWindow.MidiFileActionListener.HandMode practiceHandMode = ListWindow.MidiFileActionListener.HandMode.BOTH;
-    //   MIDI Input and Practice Mode State
     private MidiDevice midiInputDevice;
     private final List<Integer> currentlyPressedNotes = new ArrayList<>();
     private final List<Integer> awaitedNotes = new ArrayList<>();
@@ -98,7 +87,6 @@ public class PlaybackController {
         initializePlayback();
     }
 
-    //   Initialization and Setup
     private void initializePlayback() {
         startTime = System.currentTimeMillis();
         lastTickTime = startTime;
@@ -118,7 +106,6 @@ public class PlaybackController {
         animationPanel.setOnDragEnd(this::handleDragEnd);
     }
 
-    //   Main Timer Logic
     private void onTimerTick() {
         long now = System.currentTimeMillis();
         long delta = now - lastTickTime;
@@ -262,7 +249,6 @@ public class PlaybackController {
         }
     }
 
-    //   Public API and MIDI Methods
     public void setEditingMode(boolean enabled) {
         this.isEditingMode = enabled;
         animationPanel.setHandAssignmentMode(enabled);
@@ -289,10 +275,6 @@ public class PlaybackController {
         }
     }
 
-    public void setPracticeMode(boolean enabled) {
-        setPracticeMode(enabled, ListWindow.MidiFileActionListener.HandMode.BOTH);
-    }
-
     public void setMidiInputDevice(MidiDevice device) {
         try {
             if (midiInputDevice != null && midiInputDevice.isOpen()) midiInputDevice.close();
@@ -308,7 +290,6 @@ public class PlaybackController {
         saveAssignments();
     }
 
-    //Private MIDI callbacks and helpers
     private static String computeSequenceHash(Sequence sequence) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-1");
@@ -370,7 +351,6 @@ public class PlaybackController {
         }
     }
 
-    // --- REPLACED WITH GSON ---
     private void loadAssignmentsIfPresent(Sequence sequence) {
         Path file = getAssignmentFilePath(sequence);
         if (!Files.exists(file)) {
@@ -378,7 +358,6 @@ public class PlaybackController {
         }
         try {
             String content = Files.readString(file, StandardCharsets.UTF_8);
-            // Gson converts the JSON string back into our HandAssignmentFile object
             HandAssignmentFile data = gson.fromJson(content, HandAssignmentFile.class);
 
             if (data != null && data.assignments != null) {
@@ -458,7 +437,6 @@ public class PlaybackController {
     }
 
 
-    //   Inner Class for MIDI Receiver
     private class MidiInputReceiver implements Receiver {
         @Override
         public void send(MidiMessage message, long timeStamp) {

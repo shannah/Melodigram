@@ -11,7 +11,6 @@ import java.util.Map;
 
 public class PianoWindow extends JFrame {
 
-    // --- Theming and Constants ---
     private static final Font CONTROL_BUTTON_FONT = new Font("SansSerif", Font.BOLD, 18);
     private static final Font PIANO_LABEL_FONT = new Font("SansSerif", Font.BOLD, 14);
     private static final Color COLOR_CONTROL_PANEL_BG = new Color(45, 45, 45);
@@ -20,7 +19,6 @@ public class PianoWindow extends JFrame {
     private static final Color COLOR_WHITE_KEY_HIGHLIGHT = new Color(255, 200, 100);
     private static final Color COLOR_BLACK_KEY_HIGHLIGHT = Color.RED;
 
-    // A type-safe way to represent key types
     private enum KeyType {
         WHITE, BLACK;
         private static final KeyType[] MIDI_PATTERN = {WHITE, BLACK, WHITE, BLACK, WHITE, WHITE, BLACK, WHITE, BLACK, WHITE, BLACK, WHITE};
@@ -29,7 +27,6 @@ public class PianoWindow extends JFrame {
         }
     }
 
-    // --- UI Components ---
     private final JLayeredPane pianoPanel;
     private final AnimationPanel animationPanel;
     private final JButton playButton;
@@ -39,7 +36,6 @@ public class PianoWindow extends JFrame {
     private final JButton saveButton;
     private SeekBar seekBar;
 
-    // --- Piano State ---
     private final Map<Integer, JButton> noteToKeyButton = new HashMap<>();
     private final int lowestNote;
     private final int highestNote;
@@ -52,7 +48,6 @@ public class PianoWindow extends JFrame {
         this.lowestNote = Math.max(lowestNote, 0);
         this.highestNote = Math.min(highestNote, 127);
 
-        // --- Window and Component Initialization ---
         initializeFrame();
 
         JPanel controlPanel = createControlPanel(this.playButton = new JButton("||"),
@@ -66,16 +61,13 @@ public class PianoWindow extends JFrame {
 
         JPanel pianoWithLine = createPianoWithLinePanel();
 
-        // --- Layout ---
         add(controlPanel, BorderLayout.NORTH);
         add(animationPanel, BorderLayout.CENTER);
         add(pianoWithLine, BorderLayout.SOUTH);
 
         setupComponentListeners();
-        updatePianoKeys(); // Initial draw
+        updatePianoKeys();
     }
-
-    // --- UI Initialization Methods (Refactored from constructor) ---
 
     private void initializeFrame() {
         setTitle("Piano Visualization");
@@ -83,8 +75,6 @@ public class PianoWindow extends JFrame {
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         getContentPane().setBackground(new Color(230, 230, 230));
     }
-
-    // Update the method signature to accept the new button
     private JPanel createControlPanel(JButton play, JButton back, JButton backward, JButton forward, JButton save) {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(COLOR_CONTROL_PANEL_BG);
@@ -97,14 +87,11 @@ public class PianoWindow extends JFrame {
         styleControlButton(play, buttonSize, hoverEffect);
         styleControlButton(forward, buttonSize, hoverEffect);
 
-        // --- NEW: Style the save button and hide it by default ---
         styleControlButton(save, new Dimension(80, 50), hoverEffect);
         save.setVisible(false);
-        // ---
 
         GridBagConstraints gbc = new GridBagConstraints();
 
-        // Back Button (Far Left - gridx=0)
         gbc.gridx = 0;
         gbc.gridheight = 2;
         gbc.anchor = GridBagConstraints.WEST;
@@ -112,7 +99,6 @@ public class PianoWindow extends JFrame {
         gbc.insets = new Insets(5, 5, 5, 5);
         panel.add(back, gbc);
 
-        // Center Buttons Panel (Middle - gridx=1)
         JPanel centerButtonPanel = new JPanel(new GridBagLayout());
         centerButtonPanel.setOpaque(false);
         GridBagConstraints cbc = new GridBagConstraints();
@@ -123,20 +109,18 @@ public class PianoWindow extends JFrame {
 
         gbc = new GridBagConstraints();
         gbc.gridx = 1;
-        gbc.weightx = 1.0; // This makes the center panel stretch to fill space
+        gbc.weightx = 1.0;
         gbc.anchor = GridBagConstraints.CENTER;
         gbc.fill = GridBagConstraints.VERTICAL;
         panel.add(centerButtonPanel, gbc);
 
-        // --- NEW: Save Button (Far Right - gridx=2) ---
         gbc = new GridBagConstraints();
-        gbc.gridx = 2; // Place it in the third column
+        gbc.gridx = 2;
         gbc.gridheight = 2;
-        gbc.anchor = GridBagConstraints.EAST; // Pin it to the right side
+        gbc.anchor = GridBagConstraints.EAST;
         gbc.fill = GridBagConstraints.VERTICAL;
         gbc.insets = new Insets(5, 5, 5, 5);
         panel.add(save, gbc);
-        // ---
 
         return panel;
     }
@@ -166,7 +150,6 @@ public class PianoWindow extends JFrame {
         });
     }
 
-    // --- Piano Key Drawing Logic (Refactored from updatePianoKeys) ---
 
     private void updatePianoKeys() {
         pianoPanel.removeAll();
@@ -175,15 +158,12 @@ public class PianoWindow extends JFrame {
         int whiteKeyCount = countWhiteKeys();
         if (whiteKeyCount == 0) return;
 
-        // Calculate dimensions
         int panelWidth = pianoPanel.getWidth() > 0 ? pianoPanel.getWidth() : getWidth();
         whiteKeyWidth = panelWidth / whiteKeyCount;
         blackKeyWidth = (int) (whiteKeyWidth * 0.6);
-
-        // Find the C to label
+        //I'm drawing the middle C notes' notation based on the range
         int middleCNote = findMiddleCNote();
 
-        // Create and place keys
         int whiteKeyIndex = 0;
         for (int i = lowestNote; i <= highestNote; i++) {
             KeyType keyType = KeyType.fromMidiNote(i);
@@ -232,14 +212,10 @@ public class PianoWindow extends JFrame {
         keyButton.setBounds(whiteKeyIndex * whiteKeyWidth, 0, whiteKeyWidth, WHITE_KEY_HEIGHT);
 
         if (isMiddleC) {
-            // We now have the correct midiNote, so we can calculate the octave directly.
             int octave = (midiNote / 12) - 1;
             JLabel label = new JLabel("C" + octave, SwingConstants.CENTER);
             label.setFont(PIANO_LABEL_FONT);
-
-            // This prevents visual glitches when the key is highlighted.
             label.setOpaque(false);
-            // A dark color will be visible on the white key.
             label.setForeground(Color.DARK_GRAY);
 
             keyButton.setLayout(new BorderLayout());
@@ -255,7 +231,6 @@ public class PianoWindow extends JFrame {
         pianoPanel.add(keyButton, JLayeredPane.PALETTE_LAYER);
     }
 
-    // --- Public Methods for Controller Interaction ---
 
     public void highlightNote(int midiNote) {
         setKeyColor(midiNote, true);
@@ -316,14 +291,12 @@ public class PianoWindow extends JFrame {
         return KeyType.fromMidiNote(midiNote) == KeyType.BLACK;
     }
 
-    // --- Action Listener Setters ---
     public void setPlayButtonListener(ActionListener listener) { playButton.addActionListener(listener); }
     public void setBackButtonListener(ActionListener listener) { backButton.addActionListener(listener); }
     public void setBackwardButtonListener(ActionListener listener) { backwardButton.addActionListener(listener); }
     public void setForwardButtonListener(ActionListener listener) { forwardButton.addActionListener(listener); }
     public void setSaveButtonListener(ActionListener listener) { saveButton.addActionListener(listener); }
 
-    // --- Private Helper Methods ---
 
     private void styleControlButton(JButton button, Dimension size, MouseAdapter hoverEffect) {
         button.setPreferredSize(size);
@@ -368,19 +341,15 @@ public class PianoWindow extends JFrame {
         KeyType keyType = KeyType.fromMidiNote(midiNote);
         if (isHighlighted) {
 
-            //Ask the animation panel for the specific hand-assigned color.
             Color assignedColor = animationPanel.getAssignedHighlightColor(midiNote);
 
             if (assignedColor != null) {
-                //If we found one, use it
                 key.setBackground(assignedColor);
             } else {
-                //Otherwise, use the default highlight color as a fallback.
                 key.setBackground(keyType == KeyType.WHITE ? COLOR_WHITE_KEY_HIGHLIGHT : COLOR_BLACK_KEY_HIGHLIGHT);
             }
 
         } else {
-            // This part is for releasing the key
             key.setBackground(keyType == KeyType.WHITE ? Color.WHITE : Color.BLACK);
         }
         key.repaint();

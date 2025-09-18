@@ -16,7 +16,7 @@ public class AnimationPanel extends JPanel {
         public final int midiNote;
         public final long on;
         public final long off;
-        public final String hand; // "LEFT" | "RIGHT"
+        public final String hand;
 
         public HandAssignment(int midiNote, long on, long off, String hand) {
             this.midiNote = midiNote;
@@ -26,7 +26,7 @@ public class AnimationPanel extends JPanel {
         }
     }
 
-    // --- Drawing & Animation Constants ---
+
     private static final double PIXELS_PER_MILLISECOND = 0.1;
     private static final long NOTE_FALL_DURATION_MS = 2000;
     private static final int NOTE_CORNER_RADIUS = 10;
@@ -41,7 +41,6 @@ public class AnimationPanel extends JPanel {
     private static final Font NOTE_TEXT_FONT = new Font("SansSerif", Font.BOLD, 16);
     private static final Color NOTE_TEXT_COLOR = Color.WHITE;
 
-    // --- State ---
     private final List<FallingNote> notes = new CopyOnWriteArrayList<>();
     private final Function<Integer, PianoWindow.KeyInfo> keyInfoProvider;
     private long currentTimeMillis = 0;
@@ -51,7 +50,6 @@ public class AnimationPanel extends JPanel {
     private boolean isHandAssignmentEnabled = false;
     private ListWindow.MidiFileActionListener.HandMode practiceFilterMode = ListWindow.MidiFileActionListener.HandMode.BOTH;
 
-    // --- Callbacks for Controller ---
     private Runnable onDragStart;
     private LongConsumer onTimeChange;
     private Runnable onDragEnd;
@@ -76,7 +74,6 @@ public class AnimationPanel extends JPanel {
         repaint();
     }
 
-    // --- Public API for Controller ---
     public List<HandAssignment> getAssignedNotes() {
         return notes.stream()
                 .filter(note -> note.hand != null)
@@ -101,7 +98,6 @@ public class AnimationPanel extends JPanel {
                     try {
                         n.setHand(FallingNote.Hands.valueOf(a.hand));
                     } catch (IllegalArgumentException ignored) {
-                        // Ignore invalid persisted value
                     }
                 }
             }
@@ -138,10 +134,6 @@ public class AnimationPanel extends JPanel {
         notes.add(new FallingNote(midiNote, noteOnTime, noteOffTime, isBlackKey));
     }
 
-    public List<Integer> getNotesStartingBetween(long startMs, long endMs) {
-        return getNotesStartingBetween(startMs, endMs, ListWindow.MidiFileActionListener.HandMode.BOTH);
-    }
-
     public List<Integer> getNotesStartingBetween(long startMs, long endMs, ListWindow.MidiFileActionListener.HandMode handMode) {
         List<Integer> onsets = new ArrayList<>();
         if (endMs < startMs) return onsets;
@@ -155,7 +147,6 @@ public class AnimationPanel extends JPanel {
         return onsets;
     }
 
-    // --- Drawing Logic ---
 
     @Override
     protected void paintComponent(Graphics g) {
@@ -201,7 +192,6 @@ public class AnimationPanel extends JPanel {
                 : (isBlack ? COLOR_RIGHT_BLACK : COLOR_RIGHT_WHITE);
     }
 
-    // --- Inner Classes ---
     private class NoteClickHandler extends MouseAdapter {
         @Override
         public void mousePressed(MouseEvent e) {

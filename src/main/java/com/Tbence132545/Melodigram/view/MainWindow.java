@@ -18,20 +18,14 @@ public class MainWindow extends JFrame {
 
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setMinimumSize(new Dimension(800, 800));
-        // Main layout uses BorderLayout for better responsiveness
         setLayout(new BorderLayout());
-
-        // Main content panel with GridBagLayout for responsive positioning
         JPanel contentPanel = new JPanel(new GridBagLayout());
         contentPanel.setBackground(Color.BLACK);
         contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-
-        // Center panel for main elements
         JPanel centerPanel = new JPanel();
         centerPanel.setLayout(new BoxLayout(centerPanel, BoxLayout.Y_AXIS));
         centerPanel.setOpaque(false);
 
-        // Add logo
         try {
             BufferedImage logoImage = ImageIO.read(getClass().getResourceAsStream("/images/logo.jpg"));
             int newWidth = logoImage.getWidth() / 4;
@@ -52,7 +46,6 @@ public class MainWindow extends JFrame {
         centerPanel.add(Box.createVerticalStrut(20));
         centerPanel.add(quitButton);
 
-        // Add the center panel to the content panel with constraints for better responsiveness
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
         gbc.gridy = 0;
@@ -61,7 +54,6 @@ public class MainWindow extends JFrame {
         gbc.fill = GridBagConstraints.VERTICAL;
         contentPanel.add(centerPanel, gbc);
 
-        // Add content panel to frame
         add(contentPanel, BorderLayout.CENTER);
 
         setVisible(true);
@@ -74,16 +66,13 @@ public class MainWindow extends JFrame {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                // Base color
                 Color baseColor = new Color(200, 60, 60); // Slight red
                 Color hoverColor = new Color(170, 40, 40); // Darker red for hover
                 Color currentColor = getModel().isRollover() ? hoverColor : baseColor;
 
-                // Rounded background
                 g2.setColor(currentColor);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
 
-                // Text
                 g2.setColor(Color.WHITE);
                 FontMetrics fm = g2.getFontMetrics();
                 int textX = (getWidth() - fm.stringWidth(getText())) / 2;
@@ -119,7 +108,6 @@ public class MainWindow extends JFrame {
         quitButton.addActionListener(listener);
     }
 
-    // === MAIN ===
     public static void main(String[] args) {
         SwingUtilities.invokeLater(MainWindow::new);
     }

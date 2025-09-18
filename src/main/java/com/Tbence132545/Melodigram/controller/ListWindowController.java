@@ -51,7 +51,7 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
             try {
                 midiFileService.importMidiFile(fileChooser.getSelectedFile());
                 JOptionPane.showMessageDialog(view, "File imported successfully!");
-                loadAndDisplayMidiFiles(); // Refresh the list
+                loadAndDisplayMidiFiles();
             } catch (Exception ex) {
                 ex.printStackTrace();
                 JOptionPane.showMessageDialog(view, "Could not import file: " + ex.getMessage(), "Import Error", JOptionPane.ERROR_MESSAGE);
@@ -61,7 +61,6 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
 
     @Override
     public void onAssignHandsClicked(String midiFilename) {
-        //Launch pianoWindow in editing mode
         String simpleFilename = midiFilename.replace("midi/", "");
         openPianoWindowForEditing(simpleFilename);
     }
@@ -78,7 +77,7 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
                 openPianoWindow(midiFilename, true, mode, deviceInfo);
             }
         });
-        selector.setVisible(true);
+        SwingUtilities.invokeLater(() -> selector.setVisible(true));
     }
     private void openPianoWindowForEditing(String midiFileName) {
         SwingUtilities.invokeLater(() -> {
@@ -93,11 +92,11 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
                 pianoWindow.setBackButtonListener(e -> {
                     midiData.player().stop();
                     pianoWindow.dispose();
-                    view.setVisible(true);
+                    SwingUtilities.invokeLater(() -> view.setVisible(true));
                 });
 
                 pianoWindow.setVisible(true);
-                view.setVisible(false);
+                SwingUtilities.invokeLater(() -> view.setVisible(false));
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -109,7 +108,6 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
         SwingUtilities.invokeLater(() -> {
             MidiDevice inputDevice = null;
             try {
-                // Load MIDI data using the service
                 MidiFileService.MidiData midiData = midiFileService.loadMidiData(midiFileName);
 
                 int[] range = MidiPlayer.extractNoteRange(midiData.sequence());
@@ -130,11 +128,11 @@ public class ListWindowController implements ListWindow.MidiFileActionListener {
                         finalInputDevice.close();
                     }
                     pianoWindow.dispose();
-                    view.setVisible(true);
+                    SwingUtilities.invokeLater(() -> view.setVisible(true));
                 });
 
                 pianoWindow.setVisible(true);
-                view.setVisible(false);
+                SwingUtilities.invokeLater(() -> view.setVisible(false));
 
             } catch (Exception e) {
                 e.printStackTrace();
