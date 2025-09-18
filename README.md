@@ -61,7 +61,7 @@ If you want to build the project yourself, follow these steps.
 
 1.  **Clone the repository:**
     ```sh
-    git clone [https://github.com/Tbence132545/Melodigram.git](https://github.com/Tbence132545/Melodigram.git)
+    git clone https://github.com/Tbence132545/Melodigram.git
     ```
 2.  **Navigate to the project directory:**
     ```sh
