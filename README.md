@@ -83,6 +83,19 @@ If you want to build the project yourself, follow these steps.
     ```
 
 ---
+## Contribution
+
+Feel free to address the issues, fix bugs, or extend the project with your ideas.  
+You can do this by forking the repository, committing your changes, and submitting a pull request (PR) by following these steps:
+
+1. Fork the repository to your GitHub account.  
+2. Clone your fork locally.  
+3. Create a new branch for your feature or bug fix.  
+4. Make your changes and commit them with clear messages.  
+5. Push your branch to your fork.  
+6. Open a pull request to the original repository, describing your changes in detail.  
+
+I appreciate your contributions and will review your PR as soon as possible!
 
 ## Technologies Used
 
