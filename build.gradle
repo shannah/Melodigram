@@ -35,3 +35,10 @@ tasks.shadowJar {
         attributes 'Main-Class': application.mainClass.get()
     }
 }
+
+task buildExecutableJar {
+    dependsOn shadowJar
+    doLast {
+        println "Built executable JAR: build/libs/Melodigram.jar"
+    }
+}
